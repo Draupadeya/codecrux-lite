@@ -1,0 +1,642 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeCrux | Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        /* --- General Variables & Body Styling (Light Theme) --- */
+        :root {
+            --primary-purple: #8e2de2; /* Main action color */
+            --light-bg: #0f172a;       /* Dark base under overlay */
+            --card-bg: #ffffff;
+            --text-dark: #333;
+            --border-color-light: #ddd;
+            --button-hover-dark: #622cac;
+            --glow-color: rgba(142, 45, 226, 0.25);
+        }
+        body { 
+            font-family: 'Poppins', sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--light-bg);
+            overflow: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background:
+                linear-gradient(135deg, rgba(15,23,42,0.9), rgba(30,64,175,0.9)),
+                url('https://images.pexels.com/photos/3861964/pexels-photo-3861964.jpeg?auto=compress&cs=tinysrgb&w=1600')
+                    no-repeat center center fixed;
+            background-size: cover;
+            transform: scale(1.05) translate3d(0, 0, 0);
+            will-change: transform, filter;
+            animation: login-bg-pan-zoom 14s ease-in-out infinite alternate;
+            pointer-events: none;
+        }
+
+        @keyframes login-bg-pan-zoom {
+            0% {
+                transform: scale(1.05) translate3d(0, 0, 0);
+                filter: brightness(1) saturate(1.05);
+            }
+            50% {
+                transform: scale(1.12) translate3d(18px, -12px, 0);
+                filter: brightness(1.05) saturate(1.1);
+            }
+            100% {
+                transform: scale(1.18) translate3d(-18px, 12px, 0);
+                filter: brightness(1.08) saturate(1.15);
+            }
+        }
+
+        /* Secondary animated glow layer for more advanced motion */
+        body::after {
+            content: "";
+            position: fixed;
+            inset: -20%;
+            z-index: 0;
+            background:
+                radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.24), transparent 60%),
+                radial-gradient(circle at 80% 80%, rgba(244, 114, 182, 0.28), transparent 60%),
+                radial-gradient(circle at 50% 10%, rgba(94, 234, 212, 0.22), transparent 55%);
+            mix-blend-mode: screen;
+            opacity: 0.75;
+            filter: blur(12px);
+            pointer-events: none;
+            will-change: transform, opacity, filter;
+            animation: login-bg-orbit 20s cubic-bezier(0.45, 0.05, 0.2, 0.95) infinite alternate;
+        }
+
+        @keyframes login-bg-orbit {
+            0% {
+                transform: translate3d(-20px, 10px, 0) scale(1.05) rotate(0deg);
+                opacity: 0.65;
+                filter: blur(14px);
+            }
+            50% {
+                transform: translate3d(10px, -30px, 0) scale(1.15) rotate(8deg);
+                opacity: 0.9;
+                filter: blur(10px);
+            }
+            100% {
+                transform: translate3d(30px, 20px, 0) scale(1.22) rotate(-6deg);
+                opacity: 0.75;
+                filter: blur(16px);
+            }
+        }
+
+        .login-container {
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* --- Login Card Container --- */
+        .login-card { 
+            position: relative;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.95); 
+            padding: 3rem 2.5rem;
+            border-radius: 18px;
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.65); 
+            text-align: center; 
+            width: 100%;
+            max-width: 400px; 
+            backdrop-filter: blur(18px);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            transform: translateY(32px) scale(0.96);
+            opacity: 0;
+            animation:
+                card-enter 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards,
+                card-breathe 7s ease-in-out 0.9s infinite;
+        }
+
+        .login-card::before {
+            content: "";
+            position: absolute;
+            inset: -30%;
+            background:
+                radial-gradient(circle at top left, rgba(129, 140, 248, 0.38), transparent 60%),
+                radial-gradient(circle at bottom right, rgba(244, 114, 182, 0.45), transparent 65%);
+            opacity: 0.7;
+            mix-blend-mode: soft-light;
+            pointer-events: none;
+            will-change: transform, opacity, filter;
+            animation: card-orbit 18s cubic-bezier(0.45, 0.05, 0.2, 0.95) infinite alternate;
+        }
+        
+        /* --- Branding/Header within Card --- */
+        .brand-header {
+            margin-bottom: 2.5rem;
+        }
+        .brand-title {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--primary-purple);
+            margin-top: 5px;
+        }
+        .brand-icon {
+            font-size: 3rem;
+            /* Colorful gradient for the icon */
+            background: linear-gradient(45deg, #ff007f, #8e2de2); /* Pink to Purple */
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 5px rgba(255, 0, 127, 0.4)); /* Subtle glow */
+            animation: brand-glow 4s ease-in-out infinite;
+        }
+        
+        /* --- Form Elements --- */
+        .input-group-text {
+            background-color: var(--card-bg);
+            border-right: none;
+            color: var(--primary-purple);
+            border-top-left-radius: 10px;
+            border-bottom-left-radius: 10px;
+            border-color: var(--border-color-light);
+            padding: 12px;
+        }
+        .form-control {
+            border-radius: 10px;
+            padding: 12px 15px;
+            border: 1px solid var(--border-color-light);
+            background-color: #f9f9f9;
+            color: var(--text-dark);
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.02);
+            border-left: none; /* Make input look connected to icon */
+        }
+        .form-control:focus {
+            border-color: var(--primary-purple);
+            box-shadow: 0 0 0 0.25rem var(--glow-color);
+            outline: none;
+        }
+        .btn-submit {
+            position: relative;
+            overflow: hidden;
+            background-image: linear-gradient(120deg, #8e2de2, #ff007f, #3b82f6);
+            background-size: 220% 220%;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 10px;
+            border: none;
+            font-weight: 600;
+            width: 100%;
+            transition: box-shadow 0.3s, transform 0.15s;
+            margin-top: 15px;
+            animation:
+                button-gradient 5s ease-in-out infinite,
+                button-pulse 3.6s ease-in-out infinite;
+        }
+        .btn-submit:hover {
+            box-shadow: 0 8px 25px rgba(88, 28, 135, 0.55);
+            transform: translateY(-1px) scale(1.01);
+        }
+        
+        /* Checkbox Styling */
+        .form-check-input:checked {
+            background-color: var(--primary-purple);
+            border-color: var(--primary-purple);
+        }
+        .form-check-label {
+            color: var(--text-dark);
+            font-size: 0.9rem;
+        }
+        .alert {
+            font-size: 0.9rem;
+            padding: 10px 15px;
+            margin-top: 20px;
+            border-radius: 8px;
+        }
+
+        /* --- Lock Animation --- */
+        .lock-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+            height: 80px;
+            perspective: 1000px;
+        }
+
+        .lock-icon {
+            font-size: 4rem;
+            color: var(--primary-purple);
+            transition: color 0.6s ease, transform 0.6s ease;
+            transform-style: preserve-3d;
+        }
+
+        /* Closed Lock State */
+        .lock-icon.closed {
+            animation: lockIdle 0.6s ease-in-out infinite;
+        }
+
+        /* Open Lock Animation */
+        .lock-icon.opening {
+            animation: lockOpen 0.8s ease-out forwards;
+        }
+
+        .lock-icon.unlocked {
+            color: #22c55e;
+            animation: lockUnlocked 0.5s ease-out;
+        }
+
+        /* New logging / success states */
+        .lock-icon.logging {
+            color: var(--primary-purple);
+            animation: lockLogging 0.9s linear infinite;
+        }
+
+        .lock-icon.login-success {
+            color: #22c55e;
+            animation:
+                lockSuccessPop 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards,
+                lockPulse 1.4s ease-in-out 0.9s infinite;
+        }
+
+        /* Keyframe animations */
+        @keyframes lockIdle {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes lockOpen {
+            0% {
+                transform: rotateY(0deg) rotateZ(0deg) scale(1);
+                filter: drop-shadow(0 0 0px var(--glow-color));
+            }
+            50% {
+                transform: rotateY(-35deg) rotateZ(5deg) scale(1.1);
+                filter: drop-shadow(0 0 8px var(--glow-color));
+            }
+            100% {
+                transform: rotateY(-45deg) rotateZ(0deg) scale(1.1);
+                filter: drop-shadow(0 0 15px rgba(34, 197, 94, 0.5));
+                color: #22c55e;
+            }
+        }
+
+        @keyframes lockUnlocked {
+            0% {
+                transform: rotateY(-45deg) rotateZ(0deg) scale(1.1);
+                filter: drop-shadow(0 0 15px rgba(34, 197, 94, 0.5));
+            }
+            100% {
+                transform: rotateY(-45deg) rotateZ(0deg) scale(1.05);
+                filter: drop-shadow(0 0 20px rgba(34, 197, 94, 0.7));
+            }
+        }
+
+        /* Spinning loading state while logging in */
+        @keyframes lockLogging {
+            0% {
+                transform: rotateY(0deg) rotateZ(0deg) scale(1);
+                filter: drop-shadow(0 0 4px rgba(129, 140, 248, 0.4));
+            }
+            50% {
+                transform: rotateY(180deg) rotateZ(5deg) scale(1.08);
+                filter: drop-shadow(0 0 10px rgba(129, 140, 248, 0.7));
+            }
+            100% {
+                transform: rotateY(360deg) rotateZ(0deg) scale(1);
+                filter: drop-shadow(0 0 6px rgba(129, 140, 248, 0.5));
+            }
+        }
+
+        /* Pulse animation for success state */
+        @keyframes lockPulse {
+            0%, 100% {
+                filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.5));
+                transform: rotateY(-45deg) scale(1.05);
+            }
+            50% {
+                filter: drop-shadow(0 0 20px rgba(34, 197, 94, 0.8));
+                transform: rotateY(-45deg) scale(1.1);
+            }
+        }
+
+        .lock-icon.success {
+            animation: lockPulse 1s ease-in-out infinite;
+            color: #22c55e;
+        }
+
+        /* Pop effect when login succeeds */
+        @keyframes lockSuccessPop {
+            0% {
+                transform: scale(0.8) rotateZ(0deg);
+                filter: drop-shadow(0 0 0 rgba(34, 197, 94, 0.0));
+            }
+            60% {
+                transform: scale(1.25) rotateZ(-5deg);
+                filter: drop-shadow(0 0 24px rgba(34, 197, 94, 0.9));
+            }
+            100% {
+                transform: scale(1.05) rotateZ(0deg);
+                filter: drop-shadow(0 0 14px rgba(34, 197, 94, 0.7));
+            }
+        }
+
+        /* Card & button animation keyframes */
+        @keyframes card-enter {
+            0% {
+                opacity: 0;
+                transform: translateY(32px) scale(0.96);
+                filter: blur(12px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                filter: blur(0);
+            }
+        }
+
+        @keyframes card-breathe {
+            0%, 100% {
+                box-shadow: 0 24px 60px rgba(15, 23, 42, 0.65);
+            }
+            50% {
+                box-shadow: 0 32px 80px rgba(15, 23, 42, 0.85);
+            }
+        }
+
+        @keyframes card-orbit {
+            0% {
+                transform: translate3d(-10px, 10px, 0) rotate(0deg) scale(1.05);
+                opacity: 0.6;
+                filter: blur(10px);
+            }
+            50% {
+                transform: translate3d(8px, -8px, 0) rotate(8deg) scale(1.1);
+                opacity: 0.85;
+                filter: blur(6px);
+            }
+            100% {
+                transform: translate3d(14px, 6px, 0) rotate(-6deg) scale(1.12);
+                opacity: 0.7;
+                filter: blur(11px);
+            }
+        }
+
+        @keyframes button-gradient {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        .btn-submit::after {
+            content: "";
+            position: absolute;
+            top: -50%;
+            left: -30%;
+            width: 40%;
+            height: 200%;
+            background: linear-gradient(120deg, rgba(255,255,255,0.85), transparent 60%);
+            opacity: 0.0;
+            transform: translateX(-140%) skewX(-20deg);
+            pointer-events: none;
+            will-change: transform, opacity;
+            animation: button-shine 2.9s cubic-bezier(0.23, 1, 0.32, 1) infinite;
+        }
+
+        @keyframes button-shine {
+            0% {
+                opacity: 0;
+                transform: translateX(-150%) skewX(-20deg);
+            }
+            35% {
+                opacity: 0.9;
+                transform: translateX(120%) skewX(-20deg);
+            }
+            55% {
+                opacity: 0;
+                transform: translateX(150%) skewX(-20deg);
+            }
+            100% {
+                opacity: 0;
+                transform: translateX(150%) skewX(-20deg);
+            }
+        }
+
+        @keyframes button-pulse {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(129, 140, 248, 0.0);
+            }
+            40% {
+                box-shadow: 0 0 0 8px rgba(129, 140, 248, 0.15);
+            }
+            70% {
+                box-shadow: 0 0 0 12px rgba(236, 72, 153, 0.0);
+            }
+        }
+
+        @keyframes brand-glow {
+            0%, 100% {
+                transform: translateY(0) scale(1);
+                filter: drop-shadow(0 0 6px rgba(255, 0, 127, 0.55));
+            }
+            50% {
+                transform: translateY(-2px) scale(1.03);
+                filter: drop-shadow(0 0 14px rgba(129, 140, 248, 0.9));
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="http://127.0.0.1:5000/style.css">
+</head>
+<body>
+
+<div class="login-container">
+    <div class="login-card skeleton-overlay-card">
+        <div class="brand-header">
+            <i class="fas fa-lock brand-icon"></i>
+            <div class="brand-title">CodeCrux</div>
+        </div>
+        
+        <h2 class="h5 text-muted mb-4">Secure Access</h2>
+
+        <!-- Lock Animation Icon -->
+        <div class="lock-container">
+            <i class="fas fa-lock lock-icon closed" id="lockIcon"></i>
+        </div>
+        
+        <form method="POST" action="{% url 'login' %}" id="loginForm">
+            {% csrf_token %}
+
+            <div class="mb-3">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-user"></i></span>
+                    <input type="text" class="form-control" name="username" placeholder="Username or Roll No." required>
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-key"></i></span>
+                    <input type="password" class="form-control" name="password" placeholder="Password" required>
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-start mb-4">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="rememberMe">
+                    <label class="form-check-label" for="rememberMe">
+                        Remember me
+                    </label>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn-submit">
+                <i class="fas fa-sign-in-alt me-2"></i> SIGN IN
+            </button>
+            
+            {% if form.errors %}
+                <div class="alert alert-danger" role="alert">
+                    Invalid credentials. Please try again.
+                </div>
+            {% endif %}
+            
+        </form>
+        
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // Lock Animation Script
+    const lockIcon = document.getElementById('lockIcon');
+    const loginForm = document.getElementById('loginForm');
+    const usernameInput = document.querySelector('input[name="username"]');
+    const passwordInput = document.querySelector('input[name="password"]');
+    let isSubmitting = false;
+
+    // Trigger animation on SUCCESSFUL login credentials
+    if (loginForm) {
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            // Validate form inputs
+            if (!usernameInput || usernameInput.value.trim() === '') {
+                alert('Please enter your username');
+                return;
+            }
+            if (!passwordInput || passwordInput.value.trim() === '') {
+                alert('Please enter your password');
+                return;
+            }
+
+            // Prevent multiple submissions
+            if (isSubmitting) return;
+            isSubmitting = true;
+
+            // Disable submit button
+            const submitBtn = loginForm.querySelector('.btn-submit');
+            const originalBtnText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Logging in...';
+
+            // Start advanced logging animation on lock
+            if (lockIcon) {
+                lockIcon.classList.remove('closed', 'opening', 'unlocked', 'success', 'login-success', 'fa-circle-check');
+                lockIcon.classList.add('fa-lock', 'logging');
+            }
+
+            try {
+                // Get CSRF token
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+                // Send login request to server
+                const response = await fetch(loginForm.action, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: new URLSearchParams({
+                        'username': usernameInput.value,
+                        'password': passwordInput.value,
+                        'csrfmiddlewaretoken': csrfToken
+                    }),
+                    credentials: 'same-origin'
+                });
+
+                // Check if login was successful (will redirect on success)
+                if (response.ok) {
+                    // Credentials are correct! Show green open lock with pop animation
+                    if (lockIcon) {
+                        lockIcon.classList.remove('logging', 'fa-lock', 'closed', 'fa-circle-check');
+                        lockIcon.classList.add('fa-lock-open', 'login-success');
+                    }
+
+                    // Wait for animation, then redirect
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    
+                    // Redirect to the page returned by server (dashboard)
+                    window.location.href = response.url || '/exam/dashboard/';
+                } else {
+                    // Login failed - show error and keep lock closed
+                    if (lockIcon) {
+                        lockIcon.classList.remove('logging', 'opening', 'unlocked', 'success', 'login-success', 'fa-circle-check');
+                        lockIcon.classList.add('fa-lock', 'closed');
+                    }
+                    
+                    // Restore button
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
+                    isSubmitting = false;
+
+                    // Display error message
+                    const errorDiv = document.querySelector('.alert-danger') || 
+                                   document.createElement('div');
+                    errorDiv.className = 'alert alert-danger';
+                    errorDiv.textContent = 'Invalid username or password. Please try again.';
+                    
+                    if (!document.querySelector('.alert-danger')) {
+                        loginForm.appendChild(errorDiv);
+                    }
+                }
+            } catch (error) {
+                // Network error
+                console.error('Login error:', error);
+                if (lockIcon) {
+                    lockIcon.classList.remove('logging', 'opening', 'unlocked', 'success', 'login-success', 'fa-circle-check');
+                    lockIcon.classList.add('fa-lock', 'closed');
+                }
+                
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+                isSubmitting = false;
+
+                alert('An error occurred. Please try again.');
+            }
+        });
+    }
+
+    // Initialize lock to closed state on page load
+    window.addEventListener('load', function() {
+        if (lockIcon) {
+            lockIcon.classList.remove('fa-lock-open', 'opening', 'unlocked', 'success', 'logging', 'login-success', 'fa-circle-check');
+            lockIcon.classList.add('fa-lock', 'closed');
+        }
+        // Mark page as fully loaded so skeleton overlays disappear
+        document.body.classList.add('skeleton-loaded');
+    });
+</script>
+</body>
+</html>

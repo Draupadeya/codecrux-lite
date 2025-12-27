@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Test - StudyMate</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #4F46E5;
+            margin-top: 0;
+        }
+        video {
+            width: 100%;
+            max-width: 640px;
+            height: 480px;
+            background: #000;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+            display: block;
+            margin: 20px 0;
+        }
+        button {
+            background: #4F46E5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #4338CA;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        #status {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+        .info { background: #E0F2FE; color: #0369A1; }
+        .success { background: #DCFCE7; color: #166534; }
+        .error { background: #FEE2E2; color: #991B1B; }
+        .warning { background: #FEF3C7; color: #92400E; }
+        #log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 3px 0;
+        }
+        .log-success { color: #4ade80; }
+        .log-error { color: #f87171; }
+        .log-info { color: #60a5fa; }
+    </style>
+</head>
+<body>
+    <div class="container skeleton-overlay-card">
+        <h1>🎥 Camera Access Test</h1>
+        <p>This page helps diagnose camera permission issues in StudyMate.</p>
+        
+        <div id="status" class="info">
+            Click "Request Camera Access" to test your camera
+        </div>
+        
+        <video id="video" autoplay muted playsinline></video>
+        
+        <div>
+            <button id="requestBtn" onclick="requestCamera()">🎥 Request Camera Access</button>
+            <button id="stopBtn" onclick="stopCamera()" disabled>⏹️ Stop Camera</button>
+            <button onclick="clearLog()">🗑️ Clear Log</button>
+        </div>
+        
+        <div id="log"></div>
+    </div>
+
+    <script>
+        // Disable skeleton overlay once the camera test page has fully loaded
+        window.addEventListener('load', function () {
+            document.body.classList.add('skeleton-loaded');
+        });
+
+        let stream = null;
+        const video = document.getElementById('video');
+        const status = document.getElementById('status');
+        const requestBtn = document.getElementById('requestBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const logDiv = document.getElementById('log');
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatus(message, type) {
+            status.textContent = message;
+            status.className = type;
+        }
+
+        function clearLog() {
+            logDiv.innerHTML = '';
+            log('Log cleared', 'info');
+        }
+
+        async function requestCamera() {
+            log('=== Camera Test Started ===', 'info');
+            updateStatus('Testing camera access...', 'info');
+            
+            // 1. Check browser support
+            log('1️⃣ Checking browser support...', 'info');
+            if (!navigator.mediaDevices) {
+                log('❌ navigator.mediaDevices not available', 'error');
+                updateStatus('❌ Your browser does not support camera access', 'error');
+                return;
+            }
+            log('✅ navigator.mediaDevices is available', 'success');
+            
+            if (!navigator.mediaDevices.getUserMedia) {
+                log('❌ getUserMedia not available', 'error');
+                updateStatus('❌ getUserMedia API not supported', 'error');
+                return;
+            }
+            log('✅ getUserMedia is available', 'success');
+            
+            // 2. Check secure context
+            log('2️⃣ Checking secure context...', 'info');
+            log(`   - isSecureContext: ${window.isSecureContext}`, 'info');
+            log(`   - protocol: ${window.location.protocol}`, 'info');
+            log(`   - hostname: ${window.location.hostname}`, 'info');
+            
+            if (!window.isSecureContext && 
+                !['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+                log('⚠️ Not a secure context - camera may not work', 'error');
+                updateStatus('⚠️ Please use HTTPS or localhost', 'warning');
+            } else {
+                log('✅ Secure context verified', 'success');
+            }
+            
+            // 3. Check permissions (if supported)
+            log('3️⃣ Checking camera permissions...', 'info');
+            if (navigator.permissions && navigator.permissions.query) {
+                try {
+                    const permStatus = await navigator.permissions.query({ name: 'camera' });
+                    log(`   - Permission state: ${permStatus.state}`, 'info');
+                    
+                    if (permStatus.state === 'denied') {
+                        log('❌ Camera permission is DENIED', 'error');
+                        updateStatus('❌ Camera blocked - Enable in browser settings', 'error');
+                        alert('Camera is blocked!\n\n' +
+                              'To fix:\n' +
+                              '1. Click the camera icon (🎥) in address bar\n' +
+                              '2. Select "Always allow"\n' +
+                              '3. Refresh this page');
+                        return;
+                    }
+                } catch (e) {
+                    log('   - Permission query not supported (this is OK)', 'info');
+                }
+            }
+            
+            // 4. Request camera access
+            log('4️⃣ Requesting camera access...', 'info');
+            updateStatus('📸 Requesting camera permission...', 'info');
+            
+            try {
+                const constraints = {
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: 'user'
+                    }
+                };
+                log(`   - Constraints: ${JSON.stringify(constraints)}`, 'info');
+                
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                
+                log('✅ Camera access GRANTED!', 'success');
+                log(`   - Stream ID: ${stream.id}`, 'success');
+                log(`   - Video tracks: ${stream.getVideoTracks().length}`, 'success');
+                
+                if (stream.getVideoTracks().length > 0) {
+                    const track = stream.getVideoTracks()[0];
+                    const settings = track.getSettings();
+                    log(`   - Track state: ${track.readyState}`, 'success');
+                    log(`   - Resolution: ${settings.width}x${settings.height}`, 'success');
+                    log(`   - Device: ${track.label}`, 'success');
+                }
+                
+                // 5. Attach stream to video
+                log('5️⃣ Attaching stream to video element...', 'info');
+                video.srcObject = stream;
+                
+                // Wait for video to load
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        reject(new Error('Video metadata timeout'));
+                    }, 5000);
+                    
+                    video.addEventListener('loadedmetadata', () => {
+                        clearTimeout(timeout);
+                        resolve();
+                    }, { once: true });
+                    
+                    if (video.videoWidth > 0) {
+                        clearTimeout(timeout);
+                        resolve();
+                    }
+                });
+                
+                log(`✅ Video metadata loaded: ${video.videoWidth}x${video.videoHeight}`, 'success');
+                
+                // 6. Play video
+                log('6️⃣ Starting video playback...', 'info');
+                await video.play();
+                
+                log('🎉 SUCCESS! Camera is working!', 'success');
+                updateStatus('✅ Camera is working perfectly!', 'success');
+                
+                requestBtn.disabled = true;
+                stopBtn.disabled = false;
+                
+            } catch (error) {
+                log(`❌ ERROR: ${error.name} - ${error.message}`, 'error');
+                
+                let errorMsg = '';
+                switch (error.name) {
+                    case 'NotAllowedError':
+                        errorMsg = 'Camera permission denied. Click the camera icon in address bar to allow.';
+                        break;
+                    case 'NotFoundError':
+                        errorMsg = 'No camera found. Please connect a webcam.';
+                        break;
+                    case 'NotReadableError':
+                        errorMsg = 'Camera is in use by another application.';
+                        break;
+                    case 'OverconstrainedError':
+                        errorMsg = 'Camera cannot meet the requested constraints.';
+                        break;
+                    default:
+                        errorMsg = error.message;
+                }
+                
+                updateStatus(`❌ ${errorMsg}`, 'error');
+                alert(`Camera Error\n\n${errorMsg}`);
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                log('🛑 Stopping camera...', 'info');
+                stream.getTracks().forEach(track => {
+                    track.stop();
+                    log(`   - Stopped track: ${track.kind}`, 'info');
+                });
+                video.srcObject = null;
+                stream = null;
+                log('✅ Camera stopped', 'success');
+                updateStatus('Camera stopped', 'info');
+                
+                requestBtn.disabled = false;
+                stopBtn.disabled = true;
+            }
+        }
+
+        // Log browser info on load
+        window.addEventListener('load', () => {
+            log('🌐 Browser Information:', 'info');
+            log(`   - User Agent: ${navigator.userAgent}`, 'info');
+            log(`   - Platform: ${navigator.platform}`, 'info');
+            log(`   - Vendor: ${navigator.vendor}`, 'info');
+            log('Ready to test camera!', 'success');
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            stopCamera();
+        });
+    </script>
+</body>
+</html>
