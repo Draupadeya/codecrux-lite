@@ -16,7 +16,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           # CHANGE THIS to your Hugging Face Space name (e.g., username/space-name)
-          HF_SPACE_NAME: Draupadeya/video-proctoring 
+          HF_SPACE_NAME: KILAMBI/codecrux 
         run: |
-          git remote add space https://Draupadeya:$HF_TOKEN@huggingface.co/spaces/$HF_SPACE_NAME
+          git remote add space https://KILAMBI:$HF_TOKEN@huggingface.co/spaces/$HF_SPACE_NAME
           git push --force space main
