@@ -1,10 +1,12 @@
 from django.urls import path
 from . import views
-# You don't need to import auth_views if you don't use their class-based views directly
-# from django.contrib.auth import views as auth_views 
-from django.urls import include # Keep include, but ensure it's not used incorrectly
+from . import api
 
 urlpatterns = [
+    # API Endpoints
+    path('api/login/', api.LoginAPI.as_view(), name='api_login'),
+    path('api/user/', api.UserInfoAPI.as_view(), name='api_user_info'),
+
     # 1. BASE AND AUTHENTICATION HANDLERS
     # The root path. Must be UNPROTECTED.
     path('', views.index, name='index'), 
