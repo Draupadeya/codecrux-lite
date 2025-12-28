@@ -14,6 +14,14 @@ from youtube_transcript_api import YouTubeTranscriptApi
 import requests
 import google.generativeai as genai
 from dotenv import load_dotenv
+import base64
+import numpy as np
+import cv2
+from io import BytesIO
+try:
+    from docx import Document
+except Exception:
+    Document = None
 
 # Load environment variables
 load_dotenv()
@@ -545,3 +553,292 @@ def health(request):
         "integration": "Unified Django Server",
         "port": "8000"
     })
+
+# =============================
+# 🎥 Face Detection / Attention
+# =============================
+
+# Initialize a basic face detector (Haar cascade)
+_FACE_DETECTOR = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+
+def _decode_image_b64(image_b64: str):
+    """Decode a base64 image (optionally data URI) into a BGR numpy array."""
+    try:
+        if image_b64.startswith('data:'):
+            # Strip data URI header
+            image_b64 = image_b64.split(',', 1)[1]
+        raw = base64.b64decode(image_b64)
+        np_arr = np.frombuffer(raw, dtype=np.uint8)
+        img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+        return img
+    except Exception:
+        return None
+
+
+def _detect_phone_like_regions(gray_img):
+    """
+    Naive phone detector based on rectangular, high-contrast regions.
+    It is intentionally lightweight (no ML weights) and biased toward
+    catching obvious handheld rectangles near the camera.
+    """
+    edges = cv2.Canny(gray_img, 50, 150)
+    edges = cv2.dilate(edges, None, iterations=1)
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    phone_boxes = []
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        area = w * h
+        # Rough size and aspect ratio filters for a phone shape
+        if area < 1200 or area > 45000:
+            continue
+        aspect = w / float(h)
+        if aspect < 0.35 or aspect > 0.85:
+            continue
+
+        # Prefer near-rectangular contours
+        perimeter = cv2.arcLength(cnt, True)
+        approx = cv2.approxPolyDP(cnt, 0.04 * perimeter, True)
+        if len(approx) < 4 or len(approx) > 8:
+            continue
+
+        fill_ratio = cv2.contourArea(cnt) / float(area)
+        if fill_ratio < 0.45:
+            continue
+
+        phone_boxes.append((x, y, w, h))
+
+    return {
+        "phone_detected": len(phone_boxes) > 0,
+        "phone_candidates": len(phone_boxes),
+        "phone_boxes": phone_boxes,
+    }
+
+def _analyze_frame(img_bgr):
+    """Return simple attention metrics from a single frame using heuristics."""
+    h, w = img_bgr.shape[:2]
+    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    faces = _FACE_DETECTOR.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=5, minSize=(60, 60))
+
+    face_present = len(faces) > 0
+    center_offset = 1.0
+    faces_count = int(len(faces))
+
+    if face_present:
+        # Pick largest face
+        x, y, fw, fh = max(faces, key=lambda f: f[2] * f[3])
+        face_cx = x + fw / 2.0
+        face_cy = y + fh / 2.0
+        img_cx = w / 2.0
+        img_cy = h / 2.0
+
+        # Normalized center distance (0 = centered, ~1 = off-screen)
+        dx = abs(face_cx - img_cx) / (w / 2.0)
+        dy = abs(face_cy - img_cy) / (h / 2.0)
+        center_offset = min(1.0, np.hypot(dx, dy))
+
+    # Blur measure (variance of Laplacian); lower means blur/still
+    blur_var = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+    brightness = float(gray.mean())
+
+    phone_data = _detect_phone_like_regions(gray)
+    multiple_faces = faces_count > 1
+
+    # Heuristic attention score: face present and relatively centered
+    attention_score = 0.0
+    if face_present:
+        attention_score = max(0.0, 1.0 - center_offset)
+
+    distracted = (not face_present) or (center_offset > 0.35)
+    # Heuristic boredom: face present, not distracted, but very low visual change (blur_var small)
+    bored = face_present and (not distracted) and (blur_var < 30.0)
+
+    return {
+        "face_present": face_present,
+        "multiple_faces": multiple_faces,
+        "phone_detected": bool(phone_data["phone_detected"]),
+        "phone_candidates": int(phone_data["phone_candidates"]),
+        "attention_score": round(attention_score, 3),
+        "distracted": bool(distracted),
+        "bored": bool(bored),
+        "metrics": {
+            "center_offset": round(float(center_offset), 3),
+            "blur_var": round(float(blur_var), 3),
+            "brightness": round(float(brightness), 3),
+            "faces_count": faces_count,
+            "phone_boxes": phone_data["phone_boxes"],
+            "frame_size": [int(w), int(h)]
+        }
+    }
+
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def analyze_face(request):
+    """Analyze a webcam frame for attention/distraction/boredom using heuristics."""
+    if request.method == "OPTIONS":
+        response = HttpResponse("")
+        response["Access-Control-Allow-Origin"] = "*"
+        response["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+
+    try:
+        data = json.loads(request.body)
+        image_b64 = data.get("frame")
+        if not image_b64:
+            return JsonResponse({"error": "Missing 'frame' base64 image"}, status=400)
+
+        img = _decode_image_b64(image_b64)
+        if img is None:
+            return JsonResponse({"error": "Invalid image data"}, status=400)
+
+        result = _analyze_frame(img)
+        response = JsonResponse(result)
+        response["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        print(f"analyze-face error: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+# --- Notes (.docx) Generation ---
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def generate_notes_doc(request):
+    if request.method == "OPTIONS":
+        response = HttpResponse("")
+        response["Access-Control-Allow-Origin"] = "*"
+        response["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+
+    try:
+        data = json.loads(request.body)
+        module_title = data.get("moduleTitle", "Module")
+        summary = data.get("summary", "")
+        key_points = data.get("keyPoints", [])
+
+        if Document is None:
+            # Provide a graceful fallback if python-docx is not available
+            content = f"Notes for {module_title}\n\nSummary:\n{summary}\n\nKey Points:\n" + "\n".join(f"- {p}" for p in key_points[:5])
+            blob = content.encode("utf-8")
+            file_name = re.sub(r"[^\w\-]+", "_", module_title.strip()) or "module"
+            file_name += ".txt"
+            hex_blob = blob.hex()
+        else:
+            # Build a simple .docx file
+            doc = Document()
+            doc.add_heading(f"Notes: {module_title}", level=1)
+            if summary:
+                doc.add_paragraph("Summary:")
+                doc.add_paragraph(summary)
+            if key_points:
+                doc.add_paragraph("Key Points:")
+                for p in key_points[:5]:
+                    doc.add_paragraph(p, style='List Bullet')
+
+            buf = BytesIO()
+            doc.save(buf)
+            buf.seek(0)
+            hex_blob = buf.read().hex()
+            file_name = re.sub(r"[^\w\-]+", "_", module_title.strip()) or "module"
+            file_name += ".docx"
+
+        response = JsonResponse({
+            "file_blob": hex_blob,
+            "file_name": file_name
+        })
+        response["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        print(f"generate-notes-doc error: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+# --- Practice Challenge Generation ---
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def generate_challenge(request):
+    if request.method == "OPTIONS":
+        response = HttpResponse("")
+        response["Access-Control-Allow-Origin"] = "*"
+        response["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+
+    try:
+        data = json.loads(request.body)
+        module_title = data.get("moduleTitle", "Module")
+        key_points = data.get("keyPoints", [])
+
+        # Simple deterministic challenge without relying on the AI
+        title = f"Build a Mini Page: {module_title}"
+        question = (
+            "Create a simple web page with a heading, a styled button, and a script that shows an alert when the button is clicked. "
+            "Use semantic HTML, add basic CSS, and vanilla JS for interactivity."
+        )
+        starting_code = {
+            "html": "<h1>Your Title</h1>\n<button id=\"actionBtn\">Click Me</button>",
+            "css": "body { font-family: sans-serif; padding: 1rem; }\nbutton { padding: .5rem 1rem; }",
+            "js": "document.getElementById('actionBtn').addEventListener('click', () => alert('Hello!'));"
+        }
+        solution = starting_code  # For now, solution equals starting code
+
+        response = JsonResponse({
+            "type": "web",
+            "title": title,
+            "question": question,
+            "starting_code": starting_code,
+            "solution": solution
+        })
+        response["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        print(f"generate-challenge error: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+# --- AI Hint (deterministic helper) ---
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def get_hint(request):
+    if request.method == "OPTIONS":
+        response = HttpResponse("")
+        response["Access-Control-Allow-Origin"] = "*"
+        response["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+
+    try:
+        data = json.loads(request.body)
+        challenge_question = data.get("challenge_question", "")
+        user_code = data.get("user_code", {"html": "", "css": "", "js": ""})
+        solution = data.get("solution", {"html": "", "css": "", "js": ""})
+        try_count = int(data.get("try_count", 1))
+
+        hints = []
+        # Check HTML structure
+        if "<h1" not in user_code.get("html", ""):
+            hints.append("Add a main heading using <h1> to describe the page.")
+        if "button" not in user_code.get("html", ""):
+            hints.append("Include a <button id=\"actionBtn\"> element so you can attach a click handler.")
+
+        # Check CSS basics
+        if "font-family" not in user_code.get("css", ""):
+            hints.append("Set a readable font in CSS, e.g., body { font-family: sans-serif; }.")
+        if "padding" not in user_code.get("css", ""):
+            hints.append("Add padding to the button for better click area.")
+
+        # Check JS interaction
+        js = user_code.get("js", "")
+        if "addEventListener" not in js or "click" not in js:
+            hints.append("Attach a click event listener to the button using addEventListener('click', ...).")
+
+        if try_count <= 1 and not hints:
+            hints.append("Try running your code to see the preview, then iterate on styling and interaction.")
+
+        hint_text = "\n".join(hints) if hints else "Looks great! Consider improving accessibility and responsive styles."
+        response = JsonResponse({"hint": hint_text})
+        response["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        print(f"get-hint error: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
+

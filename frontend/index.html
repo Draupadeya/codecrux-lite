@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StudyMate</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2.0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
@@ -33,26 +33,55 @@
         }
     </script>
 
-    <header class="main-header">
-        <div id="home-logo-btn" class="logo">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 19V5C4 4.44772 4.44772 4 5 4H19C19.5523 4 20 4.44772 20 5V19C20 19.5523 19.5523 20 19 20H5C4.44772 20 4 19.5523 4 19Z" stroke="#4F46E5" stroke-width="2"/><path d="M8 9H16" stroke="#4F46E5" stroke-width="2" stroke-linecap="round"/><path d="M8 12H13" stroke="#4F46E5" stroke-width="2" stroke-linecap="round"/></svg>
-            StudyMate
-        </div>
-        <div class="header-actions">
-            <!-- NEW: Theme Toggle Switch -->
-            <div class="theme-switcher">
-                <i class="fas fa-sun"></i>
-                <label class="switch">
-                    <input type="checkbox" id="theme-toggle">
-                    <span class="slider round"></span>
-                </label>
-                <i class="fas fa-moon"></i>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div id="home-logo-btn" class="logo">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 19V5C4 4.44772 4.44772 4 5 4H19C19.5523 4 20 4.44772 20 5V19C20 19.5523 19.5523 20 19 20H5C4.44772 20 4 19.5523 4 19Z" stroke="#4F46E5" stroke-width="2"/><path d="M8 9H16" stroke="#4F46E5" stroke-width="2" stroke-linecap="round"/><path d="M8 12H13" stroke="#4F46E5" stroke-width="2" stroke-linecap="round"/></svg>
+                    StudyMate
+                </div>
+                <button id="sidebar-close-btn" class="sidebar-close-btn"><i class="fas fa-times"></i></button>
             </div>
-            <button id="add-course-btn" class="btn btn-primary">+ Add Course</button>
-        </div>
-    </header>
+            
+            <nav class="sidebar-nav">
+                <ul>
+                    <li><a href="#" class="nav-item active"><i class="fas fa-home"></i> Dashboard</a></li>
+                    <li><a href="#" class="nav-item"><i class="fas fa-book"></i> My Courses</a></li>
+                    <li><a href="/exam-flow/" class="nav-item"><i class="fas fa-user-graduate"></i> Exam</a></li>
+                    <li><a href="#" class="nav-item"><i class="fas fa-chart-line"></i> Analytics</a></li>
+                    <li><a href="#" class="nav-item"><i class="fas fa-cog"></i> Settings</a></li>
+                </ul>
+            </nav>
 
-    <main class="content-wrapper">
+            <div class="sidebar-footer">
+                 <button id="add-course-btn" class="btn btn-primary w-full">+ Add Course</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <header class="main-header">
+                <div class="header-left">
+                    <button id="sidebar-toggle" class="sidebar-toggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h2 class="page-title">Dashboard</h2>
+                </div>
+                <div class="header-actions">
+                    <!-- NEW: Theme Toggle Switch -->
+                    <div class="theme-switcher">
+                        <i class="fas fa-sun"></i>
+                        <label class="switch">
+                            <input type="checkbox" id="theme-toggle">
+                            <span class="slider round"></span>
+                        </label>
+                        <i class="fas fa-moon"></i>
+                    </div>
+                </div>
+            </header>
+
+            <main class="content-wrapper">
         <div id="course-list-view" class="skeleton-overlay-card">
             <div id="courses-container" class="courses-grid"></div>
             <div id="empty-state-container">
@@ -202,6 +231,9 @@
             <!-- ### END UPDATED Module Section ### -->
         </div>
     </main>
+        </div> <!-- End main-content -->
+        <div id="sidebar-overlay" class="sidebar-overlay"></div>
+    </div> <!-- End app-container -->
 
     <!-- Add Course Modal -->
     <div id="add-course-modal" class="modal-overlay hidden">
@@ -374,6 +406,11 @@
         </div>
     </div>
 
+
+    <!-- Mobile FAB -->
+    <button id="mobile-add-course-btn" class="fab-btn hidden-desktop">
+        <i class="fas fa-plus"></i>
+    </button>
 
     <script src="script.js"></script>
     <script>

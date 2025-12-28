@@ -27,6 +27,7 @@ urlpatterns = [
     path('', views.index, name='index'),
     path('', include('monitor.urls')),
     path('courses/', include('courses.urls')),  # StudyMate courses integration
+    path('studymate/', include('studymate.urls')), # New StudyMate app
     #path('accounts/', include('django.contrib.auth.urls')),
     path('accounts/login/', views.handle_unified_login, name='accounts_login_fallback'),
 ]

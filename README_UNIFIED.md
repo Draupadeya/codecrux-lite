@@ -2,11 +2,13 @@
 
 ## ✅ Server Unification Complete!
 
-This project now runs **both** the Exam Proctoring System and StudyMate Courses on a **single unified Django server**.
+This project now runs **both** the Exam Proctoring System and StudyMate Courses on a **single unified Django server**. The separate Flask server has been deprecated and its functionality fully migrated to Django.
 
 ---
 
 ## 🚀 Quick Start
+
+You only need to run **one** server.
 
 ```powershell
 cd C:\sparkless\video_proctoring_project\proctoring
@@ -32,7 +34,9 @@ python manage.py runserver
 - Admin dashboard
 - Evidence collection
 
-### **📚 StudyMate Courses**
+### **📚 StudyMate Courses (Now in Django)**
+- **Fully Integrated**: No separate server required.
+- **Seamless Login**: Single sign-on with the proctoring system.
 - YouTube video course processing
 - AI-powered course segmentation
 - Interactive Q&A using Gemini
@@ -48,6 +52,26 @@ python manage.py runserver
 |---------|-----|
 | **Main Page** | `http://localhost:8000/` |
 | **Login** | `http://localhost:8000/login/` |
+| **StudyMate Dashboard** | `http://localhost:8000/studymate/courses/` |
+| **Admin Dashboard** | `http://localhost:8000/admin_dashboard/` |
+
+---
+
+## 🛠️ Architecture
+
+- **Backend**: Django (handling all logic, DB, and API endpoints)
+- **Frontend**: 
+  - Proctoring: Django Templates
+  - StudyMate: Vanilla HTML/JS (Served via Django Views)
+- **Database**: SQLite (Unified)
+- **AI**: Google Gemini API (Integrated into Django views)
+
+---
+
+## ⚠️ Deprecation Notice
+
+The `backend/app.py` (Flask) file is no longer used. All logic has been moved to `proctoring/studymate/views.py`.
+Please do not run `python app.py`. Only use `python manage.py runserver`.
 | **Exam Flow** | `http://localhost:8000/exam-flow/` |
 | **Student Dashboard** | `http://localhost:8000/student-dashboard/` |
 | **Admin Dashboard** | `http://localhost:8000/admin-dashboard/` |

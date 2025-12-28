@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'monitor',
     'courses',  # StudyMate courses integration
+    'studymate', # New StudyMate app
 ]
 
 MIDDLEWARE = [

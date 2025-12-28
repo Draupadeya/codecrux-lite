@@ -166,7 +166,8 @@ def redirect_to_dashboard(request: HttpRequest):
     if request.user.is_staff or request.user.is_superuser:
         return redirect('admin_dashboard') 
     else:
-        return redirect('student_dashboard')
+        # Redirect to Django StudyMate
+        return redirect('courses_portal')
 
 
 def user_logout(request):

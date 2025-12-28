@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // API Base URL - Point to Django Studymate App
+    const API_BASE_URL = '/studymate/api'; 
+
     let courses = JSON.parse(localStorage.getItem('studyCourses')) || [];
     let activeCourseIndex = null;
     let currentDayIndex = 0;
@@ -80,6 +83,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const labChatInput = document.getElementById('lab-chat-input');
     const labGetHintBtn = document.getElementById('lab-get-hint-btn');
 
+    // --- Sidebar Selectors ---
+    const sidebar = document.getElementById('sidebar');
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    const sidebarCloseBtn = document.getElementById('sidebar-close-btn');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+    // --- Sidebar Logic ---
+    function toggleSidebar() {
+        sidebar.classList.toggle('active');
+        sidebarOverlay.classList.toggle('active');
+    }
+
+    function closeSidebar() {
+        sidebar.classList.remove('active');
+        sidebarOverlay.classList.remove('active');
+    }
+
+    if (sidebarToggle) sidebarToggle.addEventListener('click', toggleSidebar);
+    if (sidebarCloseBtn) sidebarCloseBtn.addEventListener('click', closeSidebar);
+    if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
+
     // --- NEW: Practice Lab State ---
     let currentLabChallenge = null;
     let labTryCount = 0;
@@ -105,6 +129,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Event Listeners ---
     homeLogoBtn.addEventListener('click', showCourseListView);
     [addCourseBtn, addCoursePlanBtn].forEach(btn => btn.addEventListener('click', () => addCourseModal.classList.remove('hidden')));
+    
+    // Mobile FAB Listener
+    const mobileAddCourseBtn = document.getElementById('mobile-add-course-btn');
+    if (mobileAddCourseBtn) {
+        mobileAddCourseBtn.addEventListener('click', () => {
+            addCourseModal.classList.remove('hidden');
+            setTimeout(initializeStudyHoursSlider, 100);
+        });
+    }
+
     document.querySelectorAll('.cancel-modal-btn, .close-modal-btn').forEach(btn => btn.addEventListener('click', (e) => {
         e.target.closest('.modal-overlay').classList.add('hidden');
         if (e.target.closest('.modal-overlay') === complexDeleteModal) {
@@ -197,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
         submitButton.disabled = true;
 
         try {
-            const response = await fetch('http://127.0.0.1:5000/generate-plan', {
+            const response = await fetch(`${API_BASE_URL}/generate-plan/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -613,7 +647,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Fetch motivation message from backend
         try {
-            const response = await fetch('http://127.0.0.1:5000/get-motivation', {
+            const response = await fetch(`${API_BASE_URL}/get-motivation/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ moduleTitle: day.title, courseTitle: course.courseTitle }),
@@ -641,7 +675,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 // Fetch from backend
-                const response = await fetch('http://127.0.0.1:5000/generate-quiz', {
+                const response = await fetch(`${API_BASE_URL}/generate-quiz/`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
@@ -896,7 +930,7 @@ document.addEventListener('DOMContentLoaded', () => {
         button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Generating...`;
 
         try {
-            const response = await fetch('http://127.0.0.1:5000/generate-notes-doc', {
+            const response = await fetch(`${API_BASE_URL}/generate-notes-doc/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -1076,7 +1110,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         try {
-            const response = await fetch('http://127.0.0.1:5000/generate-challenge', {
+            const response = await fetch(`${API_BASE_URL}/generate-challenge/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -1225,7 +1259,7 @@ document.addEventListener('DOMContentLoaded', () => {
         addChatMessage("Thinking...", 'ai'); // Show loading state
         
         try {
-            const response = await fetch('http://127.0.0.1:5000/get-hint', {
+            const response = await fetch(`${API_BASE_URL}/get-hint/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -1494,7 +1528,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const dataUrl = attentionTracking.canvas.toDataURL('image/jpeg', 0.8);
                     
                         console.log('Sending frame to /analyze-face...');
-                        const res = await fetch('http://127.0.0.1:5000/analyze-face', {
+                        const res = await fetch(`${API_BASE_URL}/analyze-face/`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ frame: dataUrl })
