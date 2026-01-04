@@ -33,7 +33,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+<<<<<<< HEAD
     'corsheaders',  # CORS support
+=======
+    'rest_framework',
+    'corsheaders',
+>>>>>>> 80605234bd2e6cc36a304a6b4ab089eab8d57c4e
     'monitor',
     'courses',  # StudyMate courses integration
     'studymate', # New StudyMate app
@@ -44,6 +49,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -126,6 +132,8 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+CORS_ALLOW_ALL_ORIGINS = True  # For development; restrict in production
+CORS_ALLOW_CREDENTIALS = True
 
 # ====================================================================
 # 🚀 AUTHENTICATION & REDIRECTION SETTINGS (The Fix) 🚀
