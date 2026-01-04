@@ -1091,6 +1091,60 @@ def get_course_detail(request, course_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+@csrf_exempt
+def auto_enroll_all_students(request, course_id):
+    """API to auto-enroll all students in a published course"""
+    try:
+        course = Course.objects.get(id=course_id, is_published=True)
+        students = StudentProfile.objects.all()
+        
+        enrolled_count = 0
+        for student in students:
+            enrollment, created = Enrollment.objects.get_or_create(
+                student=student,
+                course=course
+            )
+            if created:
+                enrolled_count += 1
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': f'Enrolled {enrolled_count} students in {course.title}',
+            'total_enrolled': course.enrollments.count()
+        })
+    except Course.DoesNotExist:
+        return JsonResponse({'error': 'Course not found or not published'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+def auto_assign_exam_to_all(request, exam_id):
+    """API to auto-assign an exam to all students"""
+    try:
+        exam = Exam.objects.get(id=exam_id, is_published=True)
+        students = StudentProfile.objects.all()
+        
+        assigned_count = 0
+        for student in students:
+            assignment, created = ExamAssignment.objects.get_or_create(
+                student=student,
+                exam=exam
+            )
+            if created:
+                assigned_count += 1
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': f'Assigned {assigned_count} students to {exam.title}',
+            'total_assigned': exam.assignments.count()
+        })
+    except Exam.DoesNotExist:
+        return JsonResponse({'error': 'Exam not found or not published'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
 @login_required
 @require_http_methods(["POST"])
 def enroll_student(request, course_id):

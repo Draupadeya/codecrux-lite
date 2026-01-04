@@ -75,6 +75,10 @@ urlpatterns = [
     path('api/courses/<int:course_id>/delete/', views.delete_course, name='delete_course'),
     path('api/student/exams/<str:roll_number>/', views.get_student_exams_by_roll, name='get_student_exams_by_roll'),
     
+    # Auto-enrollment and assignment APIs
+    path('api/courses/<int:course_id>/auto-enroll/', views.auto_enroll_all_students, name='auto_enroll_all_students'),
+    path('api/exams/<int:exam_id>/auto-assign/', views.auto_assign_exam_to_all, name='auto_assign_exam_to_all'),
+    
     # StudyMate Frontend Routes
     path('studymate/dashboard/', views.studymate_dashboard, name='studymate_dashboard'),
     path('studymate/exam/', views.proctored_exam_view, name='proctored_exam'),

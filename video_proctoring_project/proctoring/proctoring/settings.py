@@ -33,12 +33,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-<<<<<<< HEAD
-    'corsheaders',  # CORS support
-=======
     'rest_framework',
-    'corsheaders',
->>>>>>> 80605234bd2e6cc36a304a6b4ab089eab8d57c4e
+    'corsheaders',  # CORS support
     'monitor',
     'courses',  # StudyMate courses integration
     'studymate', # New StudyMate app
@@ -59,6 +55,10 @@ MIDDLEWARE = [
 
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
     "http://localhost:5000",
     "http://127.0.0.1:5000",
     "http://localhost:5500",
@@ -67,6 +67,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:786",
 ]
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = True  # For development only
 
 ROOT_URLCONF = 'proctoring.urls'
 

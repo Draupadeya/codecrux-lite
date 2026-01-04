@@ -36,12 +36,12 @@ if not MISTRAL_API_KEY:
 print(f"✓ Loaded Mistral Key: {MISTRAL_API_KEY[:10]}...")
 
 # Paths
-BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
-SPARKLESS_ROOT = BASE_DIR.parent  # Go up to d:\sparkless 1
-TRANSCRIPTS_DIR = BASE_DIR / "backend" / "transcripts"
+BASE_DIR = Path(__file__).resolve().parent.parent  # Points to proctoring folder
+SPARKLESS_ROOT = BASE_DIR.parent.parent  # Go up to d:\sparkless 1
+TRANSCRIPTS_DIR = BASE_DIR / "transcripts"
 TRANSCRIPTS_DIR.mkdir(exist_ok=True)
 
-AUDIO_DIR = BASE_DIR / "backend" / "audio"
+AUDIO_DIR = BASE_DIR / "audio"
 AUDIO_DIR.mkdir(exist_ok=True)
 
 FRONTEND_PATH = SPARKLESS_ROOT / "frontend"

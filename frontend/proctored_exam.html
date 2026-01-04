@@ -1464,8 +1464,10 @@
         const urlParams = new URLSearchParams(window.location.search);
         const examId = urlParams.get('id');
         
-        // API base URL
-        const API_BASE = 'http://localhost:786';
+        // API base URL (auto-detects current port)
+        const API_BASE = window.location.origin;
+        
+        console.log('🌐 Backend URL auto-detected:', API_BASE);
 
         // Load exam data
         async function loadExamData() {
