@@ -9,7 +9,6 @@ from flask_cors import CORS
 from pathlib import Path
 from youtube_transcript_api import YouTubeTranscriptApi
 import requests
-import google.generativeai as genai
 from dotenv import load_dotenv
 import cv2
 import numpy as np
@@ -18,17 +17,24 @@ import base64
 from io import BytesIO
 from PIL import Image
 
+# Optional docx export for notes
+try:
+    from docx import Document
+except ImportError:
+    Document = None
+
 # --- Load environment variables FIRST ---
 load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-ASSEMBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY")
+MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
+MISTRAL_MODEL = os.getenv("MISTRAL_MODEL", "mistral-small-latest")
+MISTRAL_API_URL = os.getenv("MISTRAL_API_URL", "https://api.mistral.ai/v1/chat/completions")
+ASMEBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY")
 
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY not found in environment variables!")
+if not MISTRAL_API_KEY:
+    raise ValueError("MISTRAL_API_KEY not found in environment variables!")
 
-print(f"✓ Loaded API Key: {GEMINI_API_KEY[:10]}...")
+print(f"✓ Loaded Mistral Key: {MISTRAL_API_KEY[:10]}...")
 
 # --- Setup ---
 app = Flask(__name__)
@@ -40,12 +46,35 @@ CORS(app, resources={
     }
 })
 
-genai.configure(api_key=GEMINI_API_KEY)
 
 TRANSCRIPTS_DIR = Path("./transcripts")
 TRANSCRIPTS_DIR.mkdir(exist_ok=True)
 
 # --- Helper Functions ---
+
+def mistral_chat(prompt, temperature=0.25, max_tokens=400):
+    """Call Mistral chat completion API and return text."""
+    try:
+        resp = requests.post(
+            MISTRAL_API_URL,
+            headers={
+                "Authorization": f"Bearer {MISTRAL_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": MISTRAL_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            },
+            timeout=60,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+    except Exception as exc:
+        print(f"Mistral call failed: {exc}")
+        return ""
 
 def analyze_learner_mood(frame_data):
     """
@@ -255,13 +284,53 @@ def get_transcript_with_timestamps(video_id):
             return json.load(f)
     
     try:
-        transcript_list = YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
+        transcript_list = None
+
+        if hasattr(YouTubeTranscriptApi, "get_transcript"):
+            try:
+                transcript_list = YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
+            except Exception as inner:
+                print(f"YouTubeTranscriptApi.get_transcript failed: {inner}")
+
+        if transcript_list is None and hasattr(YouTubeTranscriptApi, "list_transcripts"):
+            try:
+                transcript_list = YouTubeTranscriptApi.list_transcripts(video_id).find_transcript(['en']).fetch()
+            except Exception as inner:
+                print(f"YouTubeTranscriptApi.list_transcripts failed: {inner}")
+
+        # Fallback to yt-dlp if YouTubeTranscriptApi is unavailable
+        if transcript_list is None:
+            print(f"Falling back to yt-dlp for {video_id}...")
+            try:
+                subprocess.run([
+                    "yt-dlp", "--write-auto-subs", "--sub-lang", "en", "--skip-download",
+                    "-o", str(TRANSCRIPTS_DIR / f"{video_id}"),
+                    f"https://www.youtube.com/watch?v={video_id}"
+                ], check=True, capture_output=True, text=True, timeout=60)
+                
+                vtt_files = list(TRANSCRIPTS_DIR.glob(f"{video_id}*.vtt"))
+                if vtt_files:
+                    vtt_file = vtt_files[0]
+                    lines = vtt_file.read_text(encoding="utf-8").splitlines()
+                    transcript_list = [
+                        {"text": line, "start": 0, "duration": 0}
+                        for line in lines
+                        if line.strip() and "-->" not in line and not line.strip().isdigit() and "WEBVTT" not in line and not line.startswith("NOTE")
+                    ]
+                    vtt_file.unlink()
+            except Exception as fallback_err:
+                print(f"yt-dlp fallback failed: {fallback_err}")
+
+        if transcript_list is None:
+            print(f"No transcript available for {video_id}; using mock")
+            return [{"text": f"Content for video {video_id}", "start": 0, "duration": 0}]
+
         with open(transcript_json_path, 'w', encoding='utf-8') as f:
             json.dump(transcript_list, f)
         return transcript_list
     except Exception as e:
-        print(f"YouTubeTranscriptApi failed: {e}")
-        return None
+        print(f"get_transcript_with_timestamps failed: {e}")
+        return [{"text": f"Content for video {video_id}", "start": 0, "duration": 0}]
 
 def get_transcript_text(video_id):
     """Get plain text transcript (fallback)"""
@@ -304,32 +373,17 @@ def get_transcript_text(video_id):
 def generate_course_overview(full_transcript_text, course_title):
     """Generate 2-4 line overview of the entire course."""
     try:
-        model = genai.GenerativeModel(GEMINI_MODEL)
-        
-        # Use first 5000 characters for course overview
         context_text = full_transcript_text[:5000] if len(full_transcript_text) > 5000 else full_transcript_text
-        
-        prompt = f"""Analyze this video course transcript and provide a 2-4 sentence overview of what concepts and topics are taught.
-
-Course Title: {course_title}
-
-Transcript Sample:
-{context_text}
-
-Focus on:
-- Main topics covered
-- Key skills students will learn
-- The learning journey from start to finish
-
-Return only the overview, no extra text."""
-
-        response = model.generate_content(prompt)
-        overview = response.text.strip()
+        prompt = (
+            "Analyze this video course transcript and provide a 2-4 sentence overview of what concepts and topics are taught.\n\n"
+            f"Course Title: {course_title}\n\n"
+            "Focus on main topics, key skills, and the learning journey. Return only the overview.\n\n"
+            f"Transcript Sample:\n{context_text}"
+        )
+        overview = mistral_chat(prompt, temperature=0.2, max_tokens=220)
         overview = re.sub(r'\n+', ' ', overview)
         overview = re.sub(r'\s+', ' ', overview)
-        
         return overview
-        
     except Exception as e:
         print(f"Course overview generation failed: {e}")
         return f"A comprehensive {course_title} covering essential concepts and practical skills."
@@ -337,34 +391,22 @@ Return only the overview, no extra text."""
 def generate_module_summary(module_text, module_num, start_time, end_time):
     """Generate summary for a specific time segment of the video."""
     try:
-        model = genai.GenerativeModel(GEMINI_MODEL)
-        
         # Convert seconds to readable time
         start_min = int(start_time / 60)
         end_min = int(end_time / 60)
         
         # Use more text for better context
         context_text = module_text[:4000] if len(module_text) > 4000 else module_text
-        
-        prompt = f"""Summarize what is taught in this specific segment (minutes {start_min}-{end_min}) of a video course in 3-4 clear sentences.
-
-Focus on:
-- What specific topics/concepts are covered in THIS segment
-- What the student will learn by watching THIS part
-- Any key skills or knowledge gained
-
-Transcript from this time segment:
-{context_text}
-
-Return only the summary, no extra text."""
-
-        response = model.generate_content(prompt)
-        summary = response.text.strip()
+        prompt = (
+            f"Summarize what is taught in minutes {start_min}-{end_min} of a video course in 3-4 clear sentences.\n"
+            "Focus on what is covered, what the student learns, and key skills.\n"
+            f"Transcript from this time segment:\n{context_text}\n"
+            "Return only the summary."
+        )
+        summary = mistral_chat(prompt, temperature=0.25, max_tokens=260)
         summary = re.sub(r'\n+', ' ', summary)
         summary = re.sub(r'\s+', ' ', summary)
-        
         return summary
-        
     except Exception as e:
         print(f"Module summary generation failed: {e}")
         sentences = [s.strip() for s in module_text.split('.') if len(s.strip()) > 30]
@@ -373,35 +415,21 @@ Return only the summary, no extra text."""
 def extract_key_points(module_text):
     """Extract 5 clear, distinct key points from the transcript."""
     try:
-        model = genai.GenerativeModel(GEMINI_MODEL)
-        
         context_text = module_text[:4000] if len(module_text) > 4000 else module_text
-        
-        prompt = f"""Extract exactly 5 key learning points from this video transcript segment.
-Each point should be:
-- A single clear concept or topic
-- 10-20 words maximum
-- Actionable and specific
-
-Transcript:
-{context_text}
-
-Return only a JSON array of strings, no other text:
-["Point 1", "Point 2", "Point 3", "Point 4", "Point 5"]"""
-
-        response = model.generate_content(prompt)
-        points_text = response.text.strip()
-        
+        prompt = (
+            "Extract exactly 5 key learning points from this video transcript segment.\n"
+            "Each point should be a single clear concept, 10-20 words, actionable and specific.\n"
+            f"Transcript:\n{context_text}\n"
+            "Return only a JSON array of strings: [\"Point 1\", \"Point 2\", \"Point 3\", \"Point 4\", \"Point 5\"]"
+        )
+        points_text = mistral_chat(prompt, temperature=0.2, max_tokens=220)
         points_text = re.sub(r'^```json?\s*\n?', '', points_text, flags=re.MULTILINE)
         points_text = re.sub(r'\n?```\s*$', '', points_text, flags=re.MULTILINE)
-        
         key_points = json.loads(points_text)
-        
         if isinstance(key_points, list) and len(key_points) > 0:
             return key_points[:5]
         else:
             raise ValueError("Invalid format")
-        
     except Exception as e:
         print(f"Key points extraction failed: {e}")
         sentences = [s.strip() for s in module_text.split('.') if 30 < len(s.strip()) < 150]
@@ -550,52 +578,105 @@ def split_transcript_without_timestamps(transcript_text, daily_study_minutes, vi
     return modules, course_overview
 
 def generate_quiz(module_title, key_points):
-    """Generate 5-question quiz using Gemini."""
-    try:
-        model = genai.GenerativeModel(GEMINI_MODEL)
-        
-        key_points_text = "\n".join(f"- {point}" for point in key_points[:5])
-        
-        prompt = f"""Create exactly 5 multiple choice questions based on {module_title}.
+        """Generate 5-question quiz using Mistral."""
+        try:
+                key_points_text = "\n".join(f"- {point}" for point in key_points[:5])
+                prompt = f"""Create exactly 5 multiple choice questions based on {module_title}.
 
 Key points covered:
 {key_points_text}
 
 Return ONLY valid JSON (no markdown):
 [
-  {{
-    "question": "Clear question?",
-    "options": {{
-      "A": "Option A",
-      "B": "Option B",
-      "C": "Option C",
-      "D": "Option D"
-    }},
-    "correct_answer": "A"
-  }}
+    {{
+        "question": "Clear question?",
+        "options": {{
+            "A": "Option A",
+            "B": "Option B",
+            "C": "Option C",
+            "D": "Option D"
+        }},
+        "correct_answer": "A"
+    }}
 ]"""
 
-        response = model.generate_content(prompt)
-        quiz_text = response.text.strip()
+                quiz_text = mistral_chat(prompt, temperature=0.25, max_tokens=420)
+                quiz_text = re.sub(r'^```json?\s*\n?', '', quiz_text, flags=re.MULTILINE)
+                quiz_text = re.sub(r'\n?```\s*$', '', quiz_text, flags=re.MULTILINE)
+                quiz = json.loads(quiz_text)
+                return quiz[:5] if isinstance(quiz, list) else []
         
-        quiz_text = re.sub(r'^```json?\s*\n?', '', quiz_text, flags=re.MULTILINE)
-        quiz_text = re.sub(r'\n?```\s*$', '', quiz_text, flags=re.MULTILINE)
-        
-        quiz = json.loads(quiz_text)
-        return quiz[:5] if isinstance(quiz, list) else []
-        
-    except Exception as e:
-        print(f"Quiz generation failed: {e}")
-        return [{
-            "question": f"What is a key concept from {module_title}?",
-            "options": {
-                "A": key_points[0] if len(key_points) > 0 else "Concept A",
-                "B": key_points[1] if len(key_points) > 1 else "Concept B",
-                "C": key_points[2] if len(key_points) > 2 else "Concept C",
-                "D": "None of the above"
-            },
-            "correct_answer": "A"
-        }]
+        except Exception as e:
+                print(f"Quiz generation failed: {e}")
+                return [{
+                        "question": f"What is a key concept from {module_title}?",
+                        "options": {
+                                "A": key_points[0] if len(key_points) > 0 else "Concept A",
+                                "B": key_points[1] if len(key_points) > 1 else "Concept B",
+                                "C": key_points[2] if len(key_points) > 2 else "Concept C",
+                                "D": "None of the above"
+                        },
+                        "correct_answer": "A"
+                }]
+
+
+# Lightweight face detector for attention tracking
+_FACE_DETECTOR = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+
+
+def decode_image_b64(image_b64):
+    """Decode a base64 image (data URI allowed) into a BGR numpy array."""
+    try:
+        if not isinstance(image_b64, str):
+            return None
+        if image_b64.startswith('data:'):
+            image_b64 = image_b64.split(',', 1)[1]
+        raw = base64.b64decode(image_b64)
+        np_arr = np.frombuffer(raw, dtype=np.uint8)
+        return cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+    except Exception:
+        return None
+
+
+def analyze_frame_basic(img_bgr):
+    """Return simple attention metrics from a single webcam frame."""
+    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    faces = _FACE_DETECTOR.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=5, minSize=(60, 60))
+
+    face_present = len(faces) > 0
+    faces_count = int(len(faces))
+    center_offset = 1.0
+
+    if face_present:
+        x, y, fw, fh = max(faces, key=lambda f: f[2] * f[3])
+        face_cx = x + fw / 2.0
+        face_cy = y + fh / 2.0
+        img_cx = img_bgr.shape[1] / 2.0
+        img_cy = img_bgr.shape[0] / 2.0
+        dx = abs(face_cx - img_cx) / (img_bgr.shape[1] / 2.0)
+        dy = abs(face_cy - img_cy) / (img_bgr.shape[0] / 2.0)
+        center_offset = min(1.0, float(np.hypot(dx, dy)))
+
+    blur_var = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+    brightness = float(gray.mean())
+
+    attention_score = max(0.0, 1.0 - center_offset) if face_present else 0.0
+    distracted = (not face_present) or center_offset > 0.35
+    bored = face_present and (not distracted) and blur_var < 30.0
+
+    return {
+        "face_present": bool(face_present),
+        "multiple_faces": faces_count > 1,
+        "attention_score": round(attention_score, 3),
+        "distracted": bool(distracted),
+        "bored": bool(bored),
+        "metrics": {
+            "faces_count": faces_count,
+            "center_offset": round(center_offset, 3),
+            "blur_var": round(blur_var, 3),
+            "brightness": round(brightness, 3)
+        }
+    }
 
 # --- Routes ---
 
@@ -728,9 +809,252 @@ def get_motivation():
         response.headers.add("Access-Control-Allow-Origin", "*")
         return response, 500
 
+
+@app.route("/ask-question", methods=["POST", "OPTIONS"])
+def ask_question():
+    """AI tutor endpoint that answers a learner question using Mistral and transcript context."""
+    if request.method == "OPTIONS":
+        response = jsonify({"status": "ok"})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        return response
+
+    try:
+        data = request.get_json() or {}
+        question = data.get("question")
+        video_id = data.get("videoId")
+        course_title = data.get("courseTitle", "this course")
+        current_time = int(data.get("currentTime", 0))
+
+        if not question or not video_id:
+            return jsonify({"error": "Missing question or videoId"}), 400
+
+        transcript_list = get_transcript_with_timestamps(video_id)
+        if transcript_list:
+            full_transcript = " ".join(entry['text'] for entry in transcript_list)
+        else:
+            full_transcript = get_transcript_text(video_id)
+
+        if transcript_list:
+            context_start = max(0, current_time - 120)
+            context_end = current_time + 120
+            context_entries = [
+                entry for entry in transcript_list
+                if context_start <= entry['start'] <= context_end
+            ]
+            context_text = " ".join(entry['text'] for entry in context_entries)
+        else:
+            video_duration = get_video_duration(video_id)
+            chars_per_second = len(full_transcript) / max(video_duration, 1)
+            context_start = max(0, int((current_time - 120) * chars_per_second))
+            context_end = int((current_time + 120) * chars_per_second)
+            context_text = full_transcript[context_start:context_end]
+
+        prompt = f"""You are a helpful tutor for the course: \"{course_title}\".
+
+    Student Question: {question}
+    Current video time: {current_time}s
+
+    Relevant transcript context:
+    {context_text}
+
+    Provide a clear, concise answer grounded in the context. If the context is thin, explain the concept with your own knowledge but note it may not have been covered yet."""
+        answer = mistral_chat(prompt, temperature=0.25, max_tokens=320)
+
+        response = jsonify({"success": True, "answer": answer})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        return response
+    except Exception as e:
+        print(f"ask-question error: {e}")
+        import traceback
+        traceback.print_exc()
+        response = jsonify({"error": str(e)})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        return response, 500
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "healthy", "message": "StudyMate API is running"})
+
+
+@app.route("/analyze-face", methods=["POST", "OPTIONS"])
+def analyze_face_basic():
+    """Lightweight camera analysis for attention tracking used by the StudyMate frontend."""
+    if request.method == "OPTIONS":
+        response = jsonify({"status": "ok"})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        return response
+
+    try:
+        data = request.get_json() or {}
+        frame_b64 = data.get("frame") or data.get("image")
+        if not frame_b64:
+            return jsonify({"error": "No frame provided"}), 400
+
+        img = decode_image_b64(frame_b64)
+        if img is None:
+            return jsonify({"error": "Invalid frame data"}), 400
+
+        result = analyze_frame_basic(img)
+        response = jsonify(result)
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        return response
+    except Exception as e:
+        print(f"analyze-face error: {e}")
+        import traceback
+        traceback.print_exc()
+        response = jsonify({"error": str(e)})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        return response, 500
+
+
+@app.route("/generate-notes-doc", methods=["POST", "OPTIONS"])
+def generate_notes_doc():
+    """Create downloadable notes (docx when available, otherwise txt) for a module."""
+    if request.method == "OPTIONS":
+        response = jsonify({"status": "ok"})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        return response
+
+    try:
+        data = request.get_json() or {}
+        title = data.get("moduleTitle", "Module")
+        summary = data.get("summary", "")
+        points = data.get("keyPoints", [])
+
+        safe_title = re.sub(r"[^\w\-]+", "_", title).strip("_") or "module"
+
+        if Document:
+            doc = Document()
+            doc.add_heading(f"Notes: {title}", level=1)
+            if summary:
+                doc.add_paragraph("Summary:")
+                doc.add_paragraph(summary)
+            if points:
+                doc.add_paragraph("Key Points:")
+                for p in points[:5]:
+                    doc.add_paragraph(p, style='List Bullet')
+
+            buf = BytesIO()
+            doc.save(buf)
+            buf.seek(0)
+            hex_blob = buf.read().hex()
+            file_name = f"Notes_{safe_title}.docx"
+        else:
+            content = f"Notes: {title}\n\nSummary:\n{summary}\n\nKey Points:\n" + "\n".join(f"- {p}" for p in points[:5])
+            hex_blob = content.encode("utf-8").hex()
+            file_name = f"Notes_{safe_title}.txt"
+
+        response = jsonify({
+            "file_blob": hex_blob,
+            "file_name": file_name
+        })
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        return response
+    except Exception as e:
+        print(f"generate-notes-doc error: {e}")
+        import traceback
+        traceback.print_exc()
+        response = jsonify({"error": str(e)})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        return response, 500
+
+
+@app.route("/generate-challenge", methods=["POST", "OPTIONS"])
+def generate_challenge():
+    """Return a deterministic practice lab challenge (frontend caches by module)."""
+    if request.method == "OPTIONS":
+        response = jsonify({"status": "ok"})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        return response
+
+    try:
+        data = request.get_json() or {}
+        module_title = data.get("moduleTitle", "Module")
+
+        title = f"Build a Mini Page: {module_title}"
+        question = (
+            "Create a simple web page with a heading, a styled button, and a script that shows an alert when the button is clicked. "
+            "Use semantic HTML, add basic CSS, and vanilla JS for interactivity."
+        )
+        starting_code = {
+            "html": "<h1>Your Title</h1>\n<button id=\"actionBtn\">Click Me</button>",
+            "css": "body { font-family: sans-serif; padding: 1rem; }\nbutton { padding: .5rem 1rem; }",
+            "js": "document.getElementById('actionBtn').addEventListener('click', () => alert('Hello!'));"
+        }
+
+        response = jsonify({
+            "type": "web",
+            "title": title,
+            "question": question,
+            "starting_code": starting_code,
+            "solution": starting_code
+        })
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        return response
+    except Exception as e:
+        print(f"generate-challenge error: {e}")
+        import traceback
+        traceback.print_exc()
+        response = jsonify({"error": str(e)})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        return response, 500
+
+
+@app.route("/get-hint", methods=["POST", "OPTIONS"])
+def get_hint():
+    """Provide lightweight hints for practice lab submissions."""
+    if request.method == "OPTIONS":
+        response = jsonify({"status": "ok"})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        return response
+
+    try:
+        data = request.get_json() or {}
+        user_code = data.get("user_code", {"html": "", "css": "", "js": ""})
+        try_count = int(data.get("try_count", 1))
+
+        hints = []
+
+        html_code = user_code.get("html", "")
+        if "<h1" not in html_code:
+            hints.append("Add a main heading using <h1> to describe the page.")
+        if "button" not in html_code:
+            hints.append("Include a <button id=\"actionBtn\"> element to attach your click handler.")
+
+        css_code = user_code.get("css", "")
+        if "font-family" not in css_code:
+            hints.append("Set a readable font in CSS, e.g., body { font-family: sans-serif; }.")
+        if "padding" not in css_code:
+            hints.append("Add padding to the button for a better click area.")
+
+        js_code = user_code.get("js", "")
+        if "addEventListener" not in js_code or "click" not in js_code:
+            hints.append("Attach a click event listener to the button using addEventListener('click', ...).")
+
+        if try_count <= 1 and not hints:
+            hints.append("Try running your code, then iterate on styling and interaction.")
+
+        hint_text = "\n".join(hints) if hints else "Looks great! Consider improving accessibility and responsive styles."
+        response = jsonify({"hint": hint_text})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        return response
+    except Exception as e:
+        print(f"get-hint error: {e}")
+        import traceback
+        traceback.print_exc()
+        response = jsonify({"error": str(e)})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        return response, 500
 
 @app.route("/detect-faces", methods=["POST", "OPTIONS"])
 def detect_faces():
@@ -993,7 +1317,7 @@ if __name__ == "__main__":
     print("\n" + "="*60)
     print("🎓 StudyMate API Server")
     print("="*60)
-    print(f"Gemini Model: {GEMINI_MODEL}")
+    print(f"Mistral Model: {MISTRAL_MODEL}")
     print(f"Server: http://127.0.0.1:5000")
     print("="*60 + "\n")
     app.run(debug=True, host='127.0.0.1', port=5000)

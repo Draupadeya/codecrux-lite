@@ -4,639 +4,533 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CodeCrux | Login</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+    <title>CodeCrux - Welcome Back</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        /* --- General Variables & Body Styling (Light Theme) --- */
-        :root {
-            --primary-purple: #8e2de2; /* Main action color */
-            --light-bg: #0f172a;       /* Dark base under overlay */
-            --card-bg: #ffffff;
-            --text-dark: #333;
-            --border-color-light: #ddd;
-            --button-hover-dark: #622cac;
-            --glow-color: rgba(142, 45, 226, 0.25);
+        body { font-family: 'Inter', sans-serif; }
+        .bg-books {
+            background-image: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)), url('https://images.unsplash.com/photo-1495446815901-a7297e633e8d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80');
+            background-size: cover;
+            background-position: center;
         }
-        body { 
-            font-family: 'Poppins', sans-serif; 
-            margin: 0; 
-            padding: 0; 
-            min-height: 100vh;
+        .slideshow-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        .slide {
+            display: none;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transition: opacity 0.8s ease-in-out;
+            background-size: cover;
+            background-position: center;
+        }
+        .slide.active {
+            display: block;
+            opacity: 1;
+        }
+        .slide-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+            padding: 3rem;
+            color: white;
+            z-index: 10;
+        }
+        .slide-text {
+            animation: slideIn 0.8s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .slide-dots {
+            position: absolute;
+            bottom: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 0.5rem;
+            z-index: 20;
+        }
+        .dot {
+            width: 0.75rem;
+            height: 0.75rem;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .dot.active {
+            background-color: white;
+            width: 1.5rem;
+            border-radius: 0.375rem;
+        }
+        .slide-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            width: 3rem;
+            height: 3rem;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.5rem;
             display: flex;
             align-items: center;
             justify-content: center;
-            background-color: var(--light-bg);
-            overflow: hidden;
-            position: relative;
+            transition: all 0.3s ease;
+            z-index: 15;
         }
-
-        body::before {
-            content: "";
+        .slide-nav:hover {
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+        .slide-nav.prev {
+            left: 1rem;
+        }
+        .slide-nav.next {
+            right: 1rem;
+        }
+        /* Lock Animation Styles */
+        .lock-animation-overlay {
             position: fixed;
-            inset: 0;
-            z-index: 0;
-            background:
-                linear-gradient(135deg, rgba(15,23,42,0.9), rgba(30,64,175,0.9)),
-                url('https://images.pexels.com/photos/3861964/pexels-photo-3861964.jpeg?auto=compress&cs=tinysrgb&w=1600')
-                    no-repeat center center fixed;
-            background-size: cover;
-            transform: scale(1.05) translate3d(0, 0, 0);
-            will-change: transform, filter;
-            animation: login-bg-pan-zoom 14s ease-in-out infinite alternate;
-            pointer-events: none;
-        }
-
-        @keyframes login-bg-pan-zoom {
-            0% {
-                transform: scale(1.05) translate3d(0, 0, 0);
-                filter: brightness(1) saturate(1.05);
-            }
-            50% {
-                transform: scale(1.12) translate3d(18px, -12px, 0);
-                filter: brightness(1.05) saturate(1.1);
-            }
-            100% {
-                transform: scale(1.18) translate3d(-18px, 12px, 0);
-                filter: brightness(1.08) saturate(1.15);
-            }
-        }
-
-        /* Secondary animated glow layer for more advanced motion */
-        body::after {
-            content: "";
-            position: fixed;
-            inset: -20%;
-            z-index: 0;
-            background:
-                radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.24), transparent 60%),
-                radial-gradient(circle at 80% 80%, rgba(244, 114, 182, 0.28), transparent 60%),
-                radial-gradient(circle at 50% 10%, rgba(94, 234, 212, 0.22), transparent 55%);
-            mix-blend-mode: screen;
-            opacity: 0.75;
-            filter: blur(12px);
-            pointer-events: none;
-            will-change: transform, opacity, filter;
-            animation: login-bg-orbit 20s cubic-bezier(0.45, 0.05, 0.2, 0.95) infinite alternate;
-        }
-
-        @keyframes login-bg-orbit {
-            0% {
-                transform: translate3d(-20px, 10px, 0) scale(1.05) rotate(0deg);
-                opacity: 0.65;
-                filter: blur(14px);
-            }
-            50% {
-                transform: translate3d(10px, -30px, 0) scale(1.15) rotate(8deg);
-                opacity: 0.9;
-                filter: blur(10px);
-            }
-            100% {
-                transform: translate3d(30px, 20px, 0) scale(1.22) rotate(-6deg);
-                opacity: 0.75;
-                filter: blur(16px);
-            }
-        }
-
-        .login-container {
-            position: relative;
-            z-index: 1;
-        }
-        
-        /* --- Login Card Container --- */
-        .login-card { 
-            position: relative;
-            overflow: hidden;
-            background: rgba(255, 255, 255, 0.95); 
-            padding: 3rem 2.5rem;
-            border-radius: 18px;
-            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.65); 
-            text-align: center; 
+            top: 0;
+            left: 0;
             width: 100%;
-            max-width: 400px; 
-            backdrop-filter: blur(18px);
-            border: 1px solid rgba(148, 163, 184, 0.35);
-            transform: translateY(32px) scale(0.96);
-            opacity: 0;
-            animation:
-                card-enter 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards,
-                card-breathe 7s ease-in-out 0.9s infinite;
-        }
-
-        .login-card::before {
-            content: "";
-            position: absolute;
-            inset: -30%;
-            background:
-                radial-gradient(circle at top left, rgba(129, 140, 248, 0.38), transparent 60%),
-                radial-gradient(circle at bottom right, rgba(244, 114, 182, 0.45), transparent 65%);
-            opacity: 0.7;
-            mix-blend-mode: soft-light;
-            pointer-events: none;
-            will-change: transform, opacity, filter;
-            animation: card-orbit 18s cubic-bezier(0.45, 0.05, 0.2, 0.95) infinite alternate;
-        }
-        
-        /* --- Branding/Header within Card --- */
-        .brand-header {
-            margin-bottom: 2.5rem;
-        }
-        .brand-title {
-            font-size: 2rem;
-            font-weight: 800;
-            color: var(--primary-purple);
-            margin-top: 5px;
-        }
-        .brand-icon {
-            font-size: 3rem;
-            /* Colorful gradient for the icon */
-            background: linear-gradient(45deg, #ff007f, #8e2de2); /* Pink to Purple */
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 0 5px rgba(255, 0, 127, 0.4)); /* Subtle glow */
-            animation: brand-glow 4s ease-in-out infinite;
-        }
-        
-        /* --- Form Elements --- */
-        .input-group-text {
-            background-color: var(--card-bg);
-            border-right: none;
-            color: var(--primary-purple);
-            border-top-left-radius: 10px;
-            border-bottom-left-radius: 10px;
-            border-color: var(--border-color-light);
-            padding: 12px;
-        }
-        .form-control {
-            border-radius: 10px;
-            padding: 12px 15px;
-            border: 1px solid var(--border-color-light);
-            background-color: #f9f9f9;
-            color: var(--text-dark);
-            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.02);
-            border-left: none; /* Make input look connected to icon */
-        }
-        .form-control:focus {
-            border-color: var(--primary-purple);
-            box-shadow: 0 0 0 0.25rem var(--glow-color);
-            outline: none;
-        }
-        .btn-submit {
-            position: relative;
-            overflow: hidden;
-            background-image: linear-gradient(120deg, #8e2de2, #ff007f, #3b82f6);
-            background-size: 220% 220%;
-            color: white;
-            padding: 12px 25px;
-            border-radius: 10px;
-            border: none;
-            font-weight: 600;
-            width: 100%;
-            transition: box-shadow 0.3s, transform 0.15s;
-            margin-top: 15px;
-            animation:
-                button-gradient 5s ease-in-out infinite,
-                button-pulse 3.6s ease-in-out infinite;
-        }
-        .btn-submit:hover {
-            box-shadow: 0 8px 25px rgba(88, 28, 135, 0.55);
-            transform: translateY(-1px) scale(1.01);
-        }
-        
-        /* Checkbox Styling */
-        .form-check-input:checked {
-            background-color: var(--primary-purple);
-            border-color: var(--primary-purple);
-        }
-        .form-check-label {
-            color: var(--text-dark);
-            font-size: 0.9rem;
-        }
-        .alert {
-            font-size: 0.9rem;
-            padding: 10px 15px;
-            margin-top: 20px;
-            border-radius: 8px;
-        }
-
-        /* --- Lock Animation --- */
-        .lock-container {
-            display: flex;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: none;
+            align-items: center;
             justify-content: center;
-            margin-bottom: 2rem;
-            height: 80px;
-            perspective: 1000px;
+            z-index: 9999;
+            flex-direction: column;
         }
-
+        .lock-animation-overlay.show {
+            display: flex;
+        }
         .lock-icon {
-            font-size: 4rem;
-            color: var(--primary-purple);
-            transition: color 0.6s ease, transform 0.6s ease;
-            transform-style: preserve-3d;
+            font-size: 80px;
+            margin-bottom: 30px;
+            animation: lockOpen 2s ease-in-out forwards;
         }
-
-        /* Closed Lock State */
-        .lock-icon.closed {
-            animation: lockIdle 0.6s ease-in-out infinite;
-        }
-
-        /* Open Lock Animation */
-        .lock-icon.opening {
-            animation: lockOpen 0.8s ease-out forwards;
-        }
-
-        .lock-icon.unlocked {
-            color: #22c55e;
-            animation: lockUnlocked 0.5s ease-out;
-        }
-
-        /* New logging / success states */
-        .lock-icon.logging {
-            color: var(--primary-purple);
-            animation: lockLogging 0.9s linear infinite;
-        }
-
-        .lock-icon.login-success {
-            color: #22c55e;
-            animation:
-                lockSuccessPop 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards,
-                lockPulse 1.4s ease-in-out 0.9s infinite;
-        }
-
-        /* Keyframe animations */
-        @keyframes lockIdle {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-
         @keyframes lockOpen {
             0% {
-                transform: rotateY(0deg) rotateZ(0deg) scale(1);
-                filter: drop-shadow(0 0 0px var(--glow-color));
-            }
-            50% {
-                transform: rotateY(-35deg) rotateZ(5deg) scale(1.1);
-                filter: drop-shadow(0 0 8px var(--glow-color));
-            }
-            100% {
-                transform: rotateY(-45deg) rotateZ(0deg) scale(1.1);
-                filter: drop-shadow(0 0 15px rgba(34, 197, 94, 0.5));
-                color: #22c55e;
-            }
-        }
-
-        @keyframes lockUnlocked {
-            0% {
-                transform: rotateY(-45deg) rotateZ(0deg) scale(1.1);
-                filter: drop-shadow(0 0 15px rgba(34, 197, 94, 0.5));
-            }
-            100% {
-                transform: rotateY(-45deg) rotateZ(0deg) scale(1.05);
-                filter: drop-shadow(0 0 20px rgba(34, 197, 94, 0.7));
-            }
-        }
-
-        /* Spinning loading state while logging in */
-        @keyframes lockLogging {
-            0% {
-                transform: rotateY(0deg) rotateZ(0deg) scale(1);
-                filter: drop-shadow(0 0 4px rgba(129, 140, 248, 0.4));
-            }
-            50% {
-                transform: rotateY(180deg) rotateZ(5deg) scale(1.08);
-                filter: drop-shadow(0 0 10px rgba(129, 140, 248, 0.7));
-            }
-            100% {
-                transform: rotateY(360deg) rotateZ(0deg) scale(1);
-                filter: drop-shadow(0 0 6px rgba(129, 140, 248, 0.5));
-            }
-        }
-
-        /* Pulse animation for success state */
-        @keyframes lockPulse {
-            0%, 100% {
-                filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.5));
-                transform: rotateY(-45deg) scale(1.05);
-            }
-            50% {
-                filter: drop-shadow(0 0 20px rgba(34, 197, 94, 0.8));
-                transform: rotateY(-45deg) scale(1.1);
-            }
-        }
-
-        .lock-icon.success {
-            animation: lockPulse 1s ease-in-out infinite;
-            color: #22c55e;
-        }
-
-        /* Pop effect when login succeeds */
-        @keyframes lockSuccessPop {
-            0% {
-                transform: scale(0.8) rotateZ(0deg);
-                filter: drop-shadow(0 0 0 rgba(34, 197, 94, 0.0));
-            }
-            60% {
-                transform: scale(1.25) rotateZ(-5deg);
-                filter: drop-shadow(0 0 24px rgba(34, 197, 94, 0.9));
-            }
-            100% {
-                transform: scale(1.05) rotateZ(0deg);
-                filter: drop-shadow(0 0 14px rgba(34, 197, 94, 0.7));
-            }
-        }
-
-        /* Card & button animation keyframes */
-        @keyframes card-enter {
-            0% {
-                opacity: 0;
-                transform: translateY(32px) scale(0.96);
-                filter: blur(12px);
-            }
-            100% {
+                transform: scale(1) rotateZ(0deg);
                 opacity: 1;
-                transform: translateY(0) scale(1);
-                filter: blur(0);
-            }
-        }
-
-        @keyframes card-breathe {
-            0%, 100% {
-                box-shadow: 0 24px 60px rgba(15, 23, 42, 0.65);
             }
             50% {
-                box-shadow: 0 32px 80px rgba(15, 23, 42, 0.85);
-            }
-        }
-
-        @keyframes card-orbit {
-            0% {
-                transform: translate3d(-10px, 10px, 0) rotate(0deg) scale(1.05);
-                opacity: 0.6;
-                filter: blur(10px);
-            }
-            50% {
-                transform: translate3d(8px, -8px, 0) rotate(8deg) scale(1.1);
-                opacity: 0.85;
-                filter: blur(6px);
+                transform: scale(1.1) rotateZ(-10deg);
             }
             100% {
-                transform: translate3d(14px, 6px, 0) rotate(-6deg) scale(1.12);
-                opacity: 0.7;
-                filter: blur(11px);
+                transform: scale(0.8) rotateZ(0deg);
+                opacity: 0;
             }
         }
-
-        @keyframes button-gradient {
+        .lock-text {
+            color: white;
+            font-size: 20px;
+            font-weight: 600;
+            animation: fadeInOut 2s ease-in-out forwards;
+        }
+        @keyframes fadeInOut {
             0% {
-                background-position: 0% 50%;
+                opacity: 0;
             }
-            50% {
-                background-position: 100% 50%;
+            20% {
+                opacity: 1;
+            }
+            80% {
+                opacity: 1;
             }
             100% {
-                background-position: 0% 50%;
+                opacity: 0;
             }
         }
-
-        .btn-submit::after {
-            content: "";
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Button Animation Styles */
+        button[type="submit"],
+        button[type="button"] {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        button[type="submit"]:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(102, 126, 234, 0.4) !important;
+        }
+        button[type="submit"]:active {
+            transform: translateY(0);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3) !important;
+        }
+        button[type="button"]:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        }
+        button[type="button"]:active {
+            transform: translateY(0);
+        }
+        /* Button ripple effect */
+        button::before {
+            content: '';
             position: absolute;
-            top: -50%;
-            left: -30%;
-            width: 40%;
-            height: 200%;
-            background: linear-gradient(120deg, rgba(255,255,255,0.85), transparent 60%);
-            opacity: 0.0;
-            transform: translateX(-140%) skewX(-20deg);
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
             pointer-events: none;
-            will-change: transform, opacity;
-            animation: button-shine 2.9s cubic-bezier(0.23, 1, 0.32, 1) infinite;
         }
-
-        @keyframes button-shine {
+        button:active::before {
+            width: 300px;
+            height: 300px;
+        }
+        /* Lock Animation Styles */
+        .lock-animation-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            flex-direction: column;
+        }
+        .lock-animation-overlay.show {
+            display: flex;
+        }
+        .lock-icon {
+            font-size: 80px;
+            margin-bottom: 30px;
+            animation: lockOpen 2s ease-in-out forwards;
+        }
+        @keyframes lockOpen {
+            0% {
+                transform: scale(1) rotateZ(0deg);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.1) rotateZ(-10deg);
+            }
+            100% {
+                transform: scale(0.8) rotateZ(0deg);
+                opacity: 0;
+            }
+        }
+        .lock-text {
+            color: white;
+            font-size: 20px;
+            font-weight: 600;
+            animation: fadeInOut 2s ease-in-out forwards;
+        }
+        @keyframes fadeInOut {
             0% {
                 opacity: 0;
-                transform: translateX(-150%) skewX(-20deg);
             }
-            35% {
-                opacity: 0.9;
-                transform: translateX(120%) skewX(-20deg);
+            20% {
+                opacity: 1;
             }
-            55% {
-                opacity: 0;
-                transform: translateX(150%) skewX(-20deg);
+            80% {
+                opacity: 1;
             }
             100% {
                 opacity: 0;
-                transform: translateX(150%) skewX(-20deg);
             }
         }
-
-        @keyframes button-pulse {
-            0%, 100% {
-                box-shadow: 0 0 0 0 rgba(129, 140, 248, 0.0);
-            }
-            40% {
-                box-shadow: 0 0 0 8px rgba(129, 140, 248, 0.15);
-            }
-            70% {
-                box-shadow: 0 0 0 12px rgba(236, 72, 153, 0.0);
-            }
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
         }
-
-        @keyframes brand-glow {
-            0%, 100% {
-                transform: translateY(0) scale(1);
-                filter: drop-shadow(0 0 6px rgba(255, 0, 127, 0.55));
-            }
-            50% {
-                transform: translateY(-2px) scale(1.03);
-                filter: drop-shadow(0 0 14px rgba(129, 140, 248, 0.9));
-            }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
-    <link rel="stylesheet" href="/studymate/static/style.css">
 </head>
-<body>
+<body class="bg-white min-h-screen flex">
 
-<div class="login-container">
-    <div class="login-card skeleton-overlay-card">
-        <div class="brand-header">
-            <i class="fas fa-lock brand-icon"></i>
-            <div class="brand-title">CodeCrux</div>
-        </div>
+    <div class="w-full lg:w-[30%] flex flex-col justify-center px-8 md:px-16 lg:px-24">
         
-        <h2 class="h5 text-muted mb-4">Secure Access</h2>
+        <div class="flex items-center gap-2 mb-12">
+            <div class="bg-indigo-100 p-2 rounded-lg">
+                <i data-lucide="sparkles" class="text-indigo-600 w-6 h-6"></i>
+            </div>
+            <span class="text-xl font-bold text-slate-800">CodeCrux</span>
+        </div>
 
-        <!-- Lock Animation Icon -->
-        <div class="lock-container">
-            <i class="fas fa-lock lock-icon closed" id="lockIcon"></i>
-        </div>
-        
-        <form method="POST" action="{% url 'login' %}" id="loginForm">
+        <h1 class="text-3xl font-bold text-slate-900 mb-2">Welcome back</h1>
+        <p class="text-slate-500 mb-8 leading-relaxed">Enter your details to access your personalized learning workspace.</p>
+
+        <form method="POST" action="{% url 'login' %}" class="space-y-5">
             {% csrf_token %}
+            
+            <div>
+                <label for="id_username" class="block text-sm font-semibold text-slate-700 mb-1">Username</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                        <i data-lucide="user" class="w-5 h-5"></i>
+                    </span>
+                    <input type="text" id="id_username" name="username" placeholder="username" class="w-full pl-10 pr-4 py-3 border-b border-slate-200 focus:border-indigo-500 focus:outline-none transition-colors" required>
+                </div>
+            </div>
 
-            <div class="mb-3">
-                <div class="input-group">
-                    <span class="input-group-text"><i class="fas fa-user"></i></span>
-                    <input type="text" class="form-control" name="username" placeholder="Username or Roll No." required>
+            <div>
+                <label for="id_password" class="block text-sm font-semibold text-slate-700 mb-1">Password</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                        <i data-lucide="lock" class="w-5 h-5"></i>
+                    </span>
+                    <input type="password" id="id_password" name="password" placeholder="••••••••" class="w-full pl-10 pr-4 py-3 border-b border-slate-200 focus:border-indigo-500 focus:outline-none transition-colors" required>
                 </div>
             </div>
-            
-            <div class="mb-4">
-                <div class="input-group">
-                    <span class="input-group-text"><i class="fas fa-key"></i></span>
-                    <input type="password" class="form-control" name="password" placeholder="Password" required>
-                </div>
+
+            <div class="flex items-center justify-between text-sm">
+                <label class="flex items-center gap-2 cursor-pointer text-slate-600">
+                    <input type="checkbox" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+                    Remember me
+                </label>
+                <a href="#" class="text-indigo-600 font-semibold hover:underline">Forgot password?</a>
             </div>
-            
-            <div class="d-flex justify-content-start mb-4">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="rememberMe">
-                    <label class="form-check-label" for="rememberMe">
-                        Remember me
-                    </label>
-                </div>
-            </div>
-            
-            <button type="submit" class="btn-submit">
-                <i class="fas fa-sign-in-alt me-2"></i> SIGN IN
+
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2 shadow-lg shadow-indigo-200 transition-all">
+                Sign In
+                <i data-lucide="arrow-right" class="w-4 h-4"></i>
             </button>
-            
+
             {% if form.errors %}
-                <div class="alert alert-danger" role="alert">
+                <div class="alert alert-danger" role="alert" style="margin-top: 20px; padding: 10px 15px; background-color: #fee2e2; border: 1px solid #fca5a5; border-radius: 0.5rem; color: #991b1b;">
                     Invalid credentials. Please try again.
                 </div>
             {% endif %}
-            
+
+            <div class="relative my-8">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-slate-200"></div>
+                </div>
+                <div class="relative flex justify-center text-xs uppercase">
+                    <span class="bg-white px-4 text-slate-400 font-medium">Or continue with</span>
+                </div>
+            </div>
+
+            <button type="button" class="w-full border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold py-3 rounded-lg flex items-center justify-center gap-3 transition-all">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5" alt="Google">
+                Sign in with Google
+            </button>
         </form>
-        
+
+        <p class="mt-8 text-center text-sm text-slate-500">
+            Don't have an account? <a href="#" class="text-indigo-600 font-bold hover:underline">Create account</a>
+        </p>
     </div>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <div class="hidden lg:flex lg:w-[70%] relative flex-col justify-end overflow-hidden">
+        <div class="slideshow-container">
+            <!-- Slide 1 -->
+            <div class="slide active" style="background-image: url('https://images.unsplash.com/photo-1517694712202-14dd9538aa97?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80');">
+                <div class="slide-overlay">
+                    <div class="slide-text max-w-xl">
+                        <h2 class="text-white text-3xl font-medium leading-tight mb-8">
+                            "CodeCrux transformed how I learn. The AI-driven insights helped me master complex topics in half the time."
+                        </h2>
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-slate-500 rounded-full flex items-center justify-center text-white font-bold border-2 border-slate-400">
+                                S
+                            </div>
+                            <div>
+                                <p class="text-white font-bold">Sarah Chen, Computer Science Student</p>
+                                <p class="text-slate-300 text-sm">Top Performer</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-<script>
-    // Lock Animation Script
-    const lockIcon = document.getElementById('lockIcon');
-    const loginForm = document.getElementById('loginForm');
-    const usernameInput = document.querySelector('input[name="username"]');
-    const passwordInput = document.querySelector('input[name="password"]');
-    let isSubmitting = false;
+            <!-- Slide 2 -->
+            <div class="slide" style="background-image: url('https://images.unsplash.com/photo-1519389950473-47ba0277781c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80');">
+                <div class="slide-overlay">
+                    <div class="slide-text max-w-xl">
+                        <h2 class="text-white text-3xl font-medium leading-tight mb-8">
+                            "The interactive features and real-time feedback have made studying so much more engaging and productive."
+                        </h2>
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold border-2 border-blue-400">
+                                M
+                            </div>
+                            <div>
+                                <p class="text-white font-bold">Michael Rodriguez, Engineering Student</p>
+                                <p class="text-slate-300 text-sm">Consistent Learner</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-    // Trigger animation on SUCCESSFUL login credentials
-    if (loginForm) {
-        loginForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
+            <!-- Slide 3 -->
+            <div class="slide" style="background-image: url('https://images.unsplash.com/photo-1552664730-d307ca884978?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80');">
+                <div class="slide-overlay">
+                    <div class="slide-text max-w-xl">
+                        <h2 class="text-white text-3xl font-medium leading-tight mb-8">
+                            "I've improved my grades significantly and now I actually enjoy the learning process with CodeCrux."
+                        </h2>
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold border-2 border-purple-400">
+                                A
+                            </div>
+                            <div>
+                                <p class="text-white font-bold">Aisha Williams, Medical Student</p>
+                                <p class="text-slate-300 text-sm">Grade Improvement Champion</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-            // Validate form inputs
-            if (!usernameInput || usernameInput.value.trim() === '') {
-                alert('Please enter your username');
-                return;
+            <!-- Slide 4 -->
+            <div class="slide" style="background-image: url('https://images.unsplash.com/photo-1543269865-cbf427effbad?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80');">
+                <div class="slide-overlay">
+                    <div class="slide-text max-w-xl">
+                        <h2 class="text-white text-3xl font-medium leading-tight mb-8">
+                            "The personalized learning paths adapted to my pace perfectly. It's like having a personal tutor."
+                        </h2>
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-white font-bold border-2 border-green-400">
+                                J
+                            </div>
+                            <div>
+                                <p class="text-white font-bold">James Taylor, Business Student</p>
+                                <p class="text-slate-300 text-sm">Personalized Learning Advocate</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation Buttons -->
+            <button class="slide-nav prev" onclick="changeSlide(-1)">❮</button>
+            <button class="slide-nav next" onclick="changeSlide(1)">❯</button>
+
+            <!-- Dots -->
+            <div class="slide-dots">
+                <span class="dot active" onclick="currentSlide(0)"></span>
+                <span class="dot" onclick="currentSlide(1)"></span>
+                <span class="dot" onclick="currentSlide(2)"></span>
+                <span class="dot" onclick="currentSlide(3)"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lock Animation Overlay -->
+    <div id="lockAnimationOverlay" class="lock-animation-overlay">
+        <div class="loading-spinner"></div>
+        <div class="lock-icon">🔓</div>
+        <div class="lock-text">Unlocking your dashboard...</div>
+    </div>
+
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        // Slideshow functionality
+        let currentSlideIndex = 0;
+        let slideAutoPlayTimer;
+
+        function showSlide(n) {
+            const slides = document.querySelectorAll('.slide');
+            const dots = document.querySelectorAll('.dot');
+
+            if (n >= slides.length) {
+                currentSlideIndex = 0;
             }
-            if (!passwordInput || passwordInput.value.trim() === '') {
-                alert('Please enter your password');
-                return;
+            if (n < 0) {
+                currentSlideIndex = slides.length - 1;
             }
 
-            // Prevent multiple submissions
-            if (isSubmitting) return;
-            isSubmitting = true;
+            slides.forEach(slide => slide.classList.remove('active'));
+            dots.forEach(dot => dot.classList.remove('active'));
 
-            // Disable submit button
-            const submitBtn = loginForm.querySelector('.btn-submit');
-            const originalBtnText = submitBtn.innerHTML;
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Logging in...';
+            slides[currentSlideIndex].classList.add('active');
+            dots[currentSlideIndex].classList.add('active');
+        }
 
-            // Start advanced logging animation on lock
-            if (lockIcon) {
-                lockIcon.classList.remove('closed', 'opening', 'unlocked', 'success', 'login-success', 'fa-circle-check');
-                lockIcon.classList.add('fa-lock', 'logging');
-            }
+        function changeSlide(n) {
+            currentSlideIndex += n;
+            showSlide(currentSlideIndex);
+            resetAutoPlay();
+        }
 
-            try {
-                // Get CSRF token
-                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        function currentSlide(n) {
+            currentSlideIndex = n;
+            showSlide(currentSlideIndex);
+            resetAutoPlay();
+        }
 
-                // Send login request to server
-                const response = await fetch(loginForm.action, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-CSRFToken': csrfToken
-                    },
-                    body: new URLSearchParams({
-                        'username': usernameInput.value,
-                        'password': passwordInput.value,
-                        'csrfmiddlewaretoken': csrfToken
-                    }),
-                    credentials: 'same-origin'
+        function autoPlaySlide() {
+            currentSlideIndex++;
+            showSlide(currentSlideIndex);
+        }
+
+        function resetAutoPlay() {
+            clearInterval(slideAutoPlayTimer);
+            slideAutoPlayTimer = setInterval(autoPlaySlide, 5000);
+        }
+
+        // Start auto play on page load
+        window.addEventListener('load', function() {
+            showSlide(currentSlideIndex);
+            slideAutoPlayTimer = setInterval(autoPlaySlide, 5000);
+            lucide.createIcons();
+        });
+
+        // Handle form submission with lock animation
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.querySelector('form[action*="login"]');
+            if (form) {
+                form.addEventListener('submit', function() {
+                    const lockOverlay = document.getElementById('lockAnimationOverlay');
+                    lockOverlay.classList.add('show');
+                    // Allow form submission to continue
+                    setTimeout(() => {}, 2000);
                 });
-
-                // Check if login was successful (will redirect on success)
-                if (response.ok) {
-                    // Credentials are correct! Show green open lock with pop animation
-                    if (lockIcon) {
-                        lockIcon.classList.remove('logging', 'fa-lock', 'closed', 'fa-circle-check');
-                        lockIcon.classList.add('fa-lock-open', 'login-success');
-                    }
-
-                    // Wait for animation, then redirect
-                    await new Promise(resolve => setTimeout(resolve, 1500));
-                    
-                    // Redirect to the page returned by server (dashboard)
-                    window.location.href = response.url || '/exam/dashboard/';
-                } else {
-                    // Login failed - show error and keep lock closed
-                    if (lockIcon) {
-                        lockIcon.classList.remove('logging', 'opening', 'unlocked', 'success', 'login-success', 'fa-circle-check');
-                        lockIcon.classList.add('fa-lock', 'closed');
-                    }
-                    
-                    // Restore button
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalBtnText;
-                    isSubmitting = false;
-
-                    // Display error message
-                    const errorDiv = document.querySelector('.alert-danger') || 
-                                   document.createElement('div');
-                    errorDiv.className = 'alert alert-danger';
-                    errorDiv.textContent = 'Invalid username or password. Please try again.';
-                    
-                    if (!document.querySelector('.alert-danger')) {
-                        loginForm.appendChild(errorDiv);
-                    }
-                }
-            } catch (error) {
-                // Network error
-                console.error('Login error:', error);
-                if (lockIcon) {
-                    lockIcon.classList.remove('logging', 'opening', 'unlocked', 'success', 'login-success', 'fa-circle-check');
-                    lockIcon.classList.add('fa-lock', 'closed');
-                }
-                
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalBtnText;
-                isSubmitting = false;
-
-                alert('An error occurred. Please try again.');
             }
         });
-    }
-
-    // Initialize lock to closed state on page load
-    window.addEventListener('load', function() {
-        if (lockIcon) {
-            lockIcon.classList.remove('fa-lock-open', 'opening', 'unlocked', 'success', 'logging', 'login-success', 'fa-circle-check');
-            lockIcon.classList.add('fa-lock', 'closed');
-        }
-        // Mark page as fully loaded so skeleton overlays disappear
-        document.body.classList.add('skeleton-loaded');
-    });
-</script>
+    </script>
 </body>
 </html>

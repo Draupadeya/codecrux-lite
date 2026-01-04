@@ -20,6 +20,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from monitor import views
 from django.contrib.auth import views as auth_views
+from django.views.generic import TemplateView
 
 
 urlpatterns = [

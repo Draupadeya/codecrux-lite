@@ -51,6 +51,32 @@ urlpatterns = [
     path('api/unblock/', views.proctor_unblock_view, name='proctor_unblock'),
     path('api/mark-step/', views.mark_step_complete, name='mark_step_complete'),  # NEW: Mark exam flow step
     
+    # Course API endpoints
+    path('api/courses/create/', views.create_course, name='create_course'),
+    path('api/courses/', views.get_courses, name='get_courses'),
+    path('api/courses/<int:course_id>/', views.get_course_detail, name='get_course_detail'),
+    path('api/courses/<int:course_id>/enroll/', views.enroll_student, name='enroll_student'),
+    path('api/student/courses/', views.get_student_courses, name='get_student_courses'),
+    path('api/student/courses/<str:roll_number>/', views.get_student_courses_by_roll, name='get_student_courses_by_roll'),
+    
+    # Exam API endpoints
+    path('api/exams/create/', views.create_exam, name='create_exam'),
+    path('api/exams/generate-ai/', views.generate_exam_ai, name='generate_exam_ai'),
+    path('api/exams/', views.get_faculty_exams, name='get_faculty_exams'),
+    path('api/exams/<int:exam_id>/delete/', views.delete_exam, name='delete_exam'),
+    path('api/exams/<int:exam_id>/submissions/', views.get_exam_submissions, name='get_exam_submissions'),
+    path('api/exams/<int:exam_id>/submission/<str:roll_number>/', views.get_student_exam_submission, name='get_student_exam_submission'),
+    path('api/exams/<int:exam_id>/export/', views.export_exam_results, name='export_exam_results'),
+    path('api/exam/submit/', views.submit_exam_attempt, name='submit_exam_attempt'),
+    path('api/analytics/', views.get_faculty_analytics, name='get_faculty_analytics'),
+    path('api/change-password/', views.change_password, name='change_password'),
+    path('api/courses/<int:course_id>/delete/', views.delete_course, name='delete_course'),
+    path('api/student/exams/<str:roll_number>/', views.get_student_exams_by_roll, name='get_student_exams_by_roll'),
+    
+    # StudyMate Frontend Routes
+    path('studymate/dashboard/', views.studymate_dashboard, name='studymate_dashboard'),
+    path('studymate/exam/', views.proctored_exam_view, name='proctored_exam'),
+    
     # 5. PROCTOR VIEWS
     path('proctor/view/<int:candidate_id>/', views.proctor_view, name='proctor_view'),
    

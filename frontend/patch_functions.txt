@@ -1,0 +1,100 @@
+Context:
+        function submitLabCode() {
+            const outputDiv = document.getElementById('labs-output');
+            outputDiv.innerHTML = '<span style="color: #10b981;">✅ Solution submitted successfully!</span>';
+        }
+
+Insert after above:
+
+        // Data Structure AR/VR visualization
+        function openDataStructureAR() {
+            const questionTitle = document.getElementById('dsa-question-title')?.textContent || 'Practice Lab';
+            const category = (document.getElementById('dsa-category')?.textContent || 'Arrays').toLowerCase();
+            const code = document.getElementById('labs-code-input')?.value || '';
+            const dsType = category.includes('tree') ? 'tree' : category.includes('graph') ? 'graph' : category.includes('list') ? 'linked' : category.includes('stack') ? 'stack' : category.includes('queue') ? 'queue' : 'array';
+            const overlay = document.createElement('div');
+            overlay.id = 'ds-ar-overlay';
+            overlay.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:10001; display:flex; flex-direction:column; padding:20px;';
+            overlay.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <h2 style="margin:0; color:#e5e7eb; font-size:20px;">🕶️ ${questionTitle} - DS Visualizer</h2>
+                    <button id="ds-ar-close" style="background:#ef4444; color:#fff; border:none; padding:8px 14px; border-radius:10px; cursor:pointer; font-weight:700;">Close</button>
+                </div>
+                <div style="display:grid; grid-template-columns:1.2fr 0.8fr; gap:12px; flex:1; min-height:320px;">
+                    <div style="position:relative; background:#111827; border:1px solid #1f2937; border-radius:12px; overflow:hidden;">
+                        <canvas id="ds-ar-canvas" style="width:100%; height:100%; display:block;"></canvas>
+                    </div>
+                    <div style="background:#0f172a; border:1px solid #1f2937; border-radius:12px; padding:12px; color:#cbd5e1; overflow-y:auto;">
+                        <p style="margin:0 0 8px 0; font-weight:700;">${category.toUpperCase()} view</p>
+                        <p style="margin:0 0 10px 0; color:#9ca3af; font-size:13px;">Quick AR/VR-style 3D view of the data structure.</p>
+                        <div style="background:#1e293b; padding:10px; border-radius:8px; margin-bottom:10px;">
+                            <p style="margin:0 0 6px 0; font-size:12px; color:#cbd5e1;">Code Snippet</p>
+                            <pre style="margin:0; white-space:pre-wrap; word-wrap:break-word; font-size:11px; color:#10b981;">${code.substring(0,160)}${code.length>160?'...':''}</pre>
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <button onclick="rotateDS3DLeft()" style="flex:1; background:#0ea5e9; color:#fff; border:none; padding:8px; border-radius:8px; cursor:pointer; font-weight:600;">↶ Rotate</button>
+                            <button onclick="zoomDS3DIn()" style="flex:1; background:#22c55e; color:#0b172a; border:none; padding:8px; border-radius:8px; cursor:pointer; font-weight:700;">🔍 Zoom</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            overlay.querySelector('#ds-ar-close').onclick = () => overlay.remove();
+            initDS3DVisualization(dsType);
+        }
+
+        function initDS3DVisualization(dsType) {
+            const canvas = document.getElementById('ds-ar-canvas');
+            if (!canvas || !THREE) return;
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(70, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+            renderer.setClearColor(0x0b1220, 1);
+            camera.position.z = 6;
+            const light = new THREE.PointLight(0xffffff, 1.2);
+            light.position.set(6, 6, 6);
+            scene.add(light);
+            scene.add(new THREE.AmbientLight(0x404040, 0.8));
+            addDSGeometry(scene, dsType);
+            function animate() {
+                requestAnimationFrame(animate);
+                scene.traverse(obj => {
+                    if (obj.isMesh && obj.userData.rot) {
+                        obj.rotation.x += obj.userData.rot.x;
+                        obj.rotation.y += obj.userData.rot.y;
+                    }
+                });
+                renderer.render(scene, camera);
+            }
+            animate();
+            window.dsScene = scene; window.dsCamera = camera; window.dsRenderer = renderer;
+        }
+
+        function addDSGeometry(scene, dsType) {
+            const addBox = (x,y,z,color) => {
+                const m = new THREE.Mesh(new THREE.BoxGeometry(0.8,0.8,0.8), new THREE.MeshPhongMaterial({ color }));
+                m.position.set(x,y,z); m.userData.rot = { x:0.003, y:0.004 }; scene.add(m);
+            };
+            const addSphere = (x,y,z,color) => {
+                const m = new THREE.Mesh(new THREE.SphereGeometry(0.4,32,32), new THREE.MeshPhongMaterial({ color }));
+                m.position.set(x,y,z); m.userData.rot = { x:0.002, y:0.003 }; scene.add(m);
+            };
+            if (dsType === 'tree') {
+                addSphere(0,1.5,0,0x0ea5e9);
+                addSphere(-1,0,0,0x22c55e); addSphere(1,0,0,0x22c55e);
+                addSphere(-1.5,-1.5,0,0xf59e0b); addSphere(-0.5,-1.5,0,0xf59e0b);
+                addSphere(0.5,-1.5,0,0xf59e0b); addSphere(1.5,-1.5,0,0xf59e0b);
+            } else if (dsType === 'linked') {
+                [-2,-0.5,1,2.5].forEach(x => addSphere(x,0,0,0x22c55e));
+            } else if (dsType === 'stack') {
+                [ -1.2,-0.4,0.4,1.2 ].forEach((y,i) => addBox(0,y,0,0xec4899 + i*7000));
+            } else if (dsType === 'queue') {
+                [-2.0,-0.6,0.8,2.2].forEach((x,i)=> addBox(x,0,0,0x8b5cf6 + i*4000));
+            } else {
+                [-2.4,-1.2,0,1.2,2.4].forEach((x,i)=> addBox(x,0,0,0x6366f1 + i*3000));
+            }
+        }
+
+        function rotateDS3DLeft(){ if (window.dsCamera) window.dsCamera.position.x -= 0.5; }
+        function zoomDS3DIn(){ if (window.dsCamera) window.dsCamera.position.z -= 0.5; }

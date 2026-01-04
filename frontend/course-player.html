@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Learning Dashboard UI</title>
+
+<style>
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+body{
+  background:#0b1020;
+  color:#e5e7eb;
+}
+
+/* MAIN LAYOUT */
+.app{
+  display:grid;
+  grid-template-columns:260px 1fr 320px;
+  height:100vh;
+}
+
+/* LEFT SIDEBAR */
+.sidebar{
+  background:#ffffff;
+  color:#111827;
+  padding:20px;
+}
+
+.sidebar-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+.progress-pill{
+  background:#ede9fe;
+  color:#6d28d9;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:12px;
+}
+
+.lesson-list{
+  list-style:none;
+  margin-top:20px;
+}
+
+.lesson-list li{
+  padding:12px;
+  border-radius:10px;
+  margin-bottom:8px;
+  display:flex;
+  justify-content:space-between;
+  font-size:14px;
+}
+
+.lesson-list li.active{
+  background:#eef2ff;
+  color:#4f46e5;
+}
+
+.lesson-list li.done{
+  color:#16a34a;
+}
+
+.lesson-list li.locked{
+  color:#9ca3af;
+}
+
+/* MAIN CONTENT */
+.content{
+  padding:20px;
+  background:radial-gradient(circle at top,#111827,#020617);
+}
+
+/* TOP BAR */
+.topbar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:16px;
+}
+
+.nav-btn{
+  background:#1f2937;
+  border:none;
+  color:#fff;
+  padding:8px 14px;
+  border-radius:10px;
+}
+
+.topbar-right{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.timer{
+  background:#1f2937;
+  padding:6px 12px;
+  border-radius:999px;
+}
+
+.icon-btn{
+  background:#1f2937;
+  border:none;
+  color:#fff;
+  padding:6px 10px;
+  border-radius:8px;
+}
+
+/* VIDEO */
+.video-placeholder{
+  height:360px;
+  background:#111827;
+  border-radius:18px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin-bottom:20px;
+}
+
+.play-btn{
+  font-size:48px;
+  opacity:.8;
+}
+
+/* INFO SECTION */
+.info-grid{
+  display:grid;
+  grid-template-columns:2fr 1fr;
+  gap:16px;
+}
+
+.info-card{
+  background:#0f172a;
+  padding:20px;
+  border-radius:16px;
+}
+
+.progress-bar{
+  height:8px;
+  background:#1e293b;
+  border-radius:999px;
+  margin:10px 0;
+}
+
+.progress-fill{
+  height:100%;
+  width:45%;
+  background:linear-gradient(90deg,#6366f1,#8b5cf6);
+  border-radius:999px;
+}
+
+.secondary-btn{
+  margin-top:10px;
+  background:#1f2937;
+  color:#fff;
+  border:none;
+  padding:10px;
+  border-radius:10px;
+}
+
+/* RIGHT PANEL */
+.right-panel{
+  background:#ffffff;
+  color:#111827;
+  padding:16px;
+}
+
+.tabs{
+  display:flex;
+  gap:8px;
+}
+
+.tab{
+  flex:1;
+  border:none;
+  padding:10px;
+  border-radius:10px;
+  background:#f3f4f6;
+}
+
+.tab.active{
+  background:#eef2ff;
+  color:#4f46e5;
+}
+
+.panel-content{
+  margin-top:16px;
+}
+
+/* PROCTOR */
+.proctor-card{
+  background:#0f172a;
+  color:#e5e7eb;
+  padding:16px;
+  border-radius:16px;
+  text-align:center;
+}
+
+.proctor-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin:8px 0;
+  font-size:14px;
+}
+
+.status-pill{
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:600;
+}
+
+.pill-success{background:#d1fae5;color:#047857;}
+.pill-warn{background:#fef9c3;color:#a16207;}
+.pill-danger{background:#fee2e2;color:#b91c1c;}
+
+.mini-metrics{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:8px;
+  margin-top:12px;
+}
+
+.mini-card{
+  background:#0b1224;
+  padding:10px;
+  border-radius:10px;
+  text-align:left;
+}
+
+.mini-card h5{margin:0 0 4px 0;font-size:12px;color:#9ca3af;}
+.mini-card strong{font-size:16px;}
+
+.motivator-card{
+  background:#0f172a;
+  color:#e5e7eb;
+  padding:14px;
+  border-radius:14px;
+  margin-top:12px;
+  border:1px solid #1f2937;
+}
+
+.motivator-card h4{margin:0 0 6px 0;font-size:15px;}
+.motivator-card p{margin:0;font-size:13px;color:#cbd5e1;}
+
+.warning{
+  color:#facc15;
+  margin-bottom:10px;
+}
+
+.primary-btn{
+  background:#6366f1;
+  border:none;
+  color:#fff;
+  padding:10px 16px;
+  border-radius:10px;
+}
+
+.proctor-footer{
+  display:flex;
+  justify-content:space-between;
+  margin-top:12px;
+  font-size:12px;
+}
+
+.alert{
+  color:#ef4444;
+}
+
+/* NOTES */
+.notes-card{
+  margin-top:16px;
+}
+
+.notes-card ul{
+  margin-top:8px;
+  padding-left:18px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h3>Curriculum</h3>
+      <span class="progress-pill" id="progress-pill">25% Done</span>
+    </div>
+
+    <ul class="lesson-list" id="lesson-list">
+      <li class="done">Course Introduction <span>15 min</span></li>
+      <li class="active">React Core Concepts <span>45 min</span></li>
+      <li class="locked">Advanced Hooks <span>55 min</span></li>
+      <li class="locked">State Management <span>60 min</span></li>
+    </ul>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="content">
+
+    <header class="topbar">
+      <button class="nav-btn" id="back-btn">← Dashboard</button>
+      <h2 id="course-title-header">React Core Concepts</h2>
+      <div class="topbar-right">
+        <span class="timer">04:58</span>
+        <button class="icon-btn">⏮</button>
+        <button class="icon-btn">⏭</button>
+      </div>
+    </header>
+
+    <div class="video-placeholder" id="video-container">
+      <div class="play-btn">▶</div>
+    </div>
+
+    <section class="info-grid">
+      <div class="info-card">
+        <h3 id="module-title">React Core Concepts</h3>
+        <p id="module-desc">
+          Learn the fundamental concepts of React, understand components,
+          and explore how the Virtual DOM works.
+        </p>
+      </div>
+
+      <div class="info-card">
+        <h4>Module Progress</h4>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <p id="progress-text">2 / 5 Topics • 45%</p>
+        <button class="secondary-btn">View Resources</button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- RIGHT PANEL -->
+  <aside class="right-panel">
+    <div class="tabs">
+      <button class="tab active">Notes</button>
+      <button class="tab">Lab</button>
+      <button class="tab">AI Tutor</button>
+    </div>
+
+    <div class="panel-content">
+      <div class="proctor-card">
+        <div class="proctor-row">
+          <span>Camera</span>
+          <span class="status-pill pill-warn" id="cam-status">Requesting...</span>
+        </div>
+        <div class="proctor-row">
+          <span>Attention</span>
+          <span class="status-pill pill-warn" id="attention-status">--</span>
+        </div>
+        <div class="proctor-row">
+          <span>Mood (lightweight)</span>
+          <span class="status-pill pill-warn" id="mood-status">--</span>
+        </div>
+        <div class="mini-metrics">
+          <div class="mini-card">
+            <h5>Attention Score</h5>
+            <strong id="attention-score">--</strong>
+          </div>
+          <div class="mini-card">
+            <h5>Distraction Flags</h5>
+            <strong id="distraction-count">0</strong>
+          </div>
+          <div class="mini-card">
+            <h5>Last Check</h5>
+            <strong id="last-check">--</strong>
+          </div>
+        </div>
+        <button class="primary-btn" id="enable-camera-btn" style="margin-top:12px;">Enable Camera</button>
+        <small style="display:block;margin-top:8px;color:#9ca3af;">Analysis is a simple motion heuristic (no face data leaves the browser).</small>
+      </div>
+
+      <div class="motivator-card">
+        <h4>AI Motivator</h4>
+        <p id="motivator-text">Let's stay focused. Press play and keep learning!</p>
+      </div>
+
+      <div class="notes-card">
+        <h3 id="notes-title">React Core Concepts</h3>
+        <p id="notes-desc">
+          React is a JavaScript library for building user interfaces
+          using reusable components.
+        </p>
+        <ul>
+          <li>Component-based UI</li>
+          <li>Virtual DOM</li>
+          <li>Reusable logic</li>
+        </ul>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<script>
+  // Get URL parameters
+  const params = new URLSearchParams(window.location.search);
+  const title = params.get('title') || 'Course Title';
+  const desc = params.get('desc') || 'Learn the fundamental concepts of React, understand components, and explore how the Virtual DOM works.';
+  const videoId = params.get('video') || '';
+  const courseId = parseInt(params.get('courseId') || '0', 10);
+
+  console.log('Course Player - URL params:', { title, desc, videoId, courseId });
+
+  // Load course data from localStorage
+  const courses = JSON.parse(localStorage.getItem('generatedCourses') || '[]');
+  const currentCourse = courses[courseId];
+  
+  console.log('Course Player - Loaded courses:', courses);
+  console.log('Course Player - Current course:', currentCourse);
+
+  // Update page content with URL parameters
+  const courseTitleHeader = document.getElementById('course-title-header');
+  const moduleTitle = document.getElementById('module-title');
+  const moduleDesc = document.getElementById('module-desc');
+  const notesTitle = document.getElementById('notes-title');
+  const notesDesc = document.getElementById('notes-desc');
+  const videoContainer = document.getElementById('video-container');
+  const backBtn = document.getElementById('back-btn');
+  const lessonList = document.getElementById('lesson-list');
+  const progressFill = document.getElementById('progress-fill');
+  const progressText = document.getElementById('progress-text');
+  const enableCameraBtn = document.getElementById('enable-camera-btn');
+  const camStatusEl = document.getElementById('cam-status');
+  const attentionStatusEl = document.getElementById('attention-status');
+  const moodStatusEl = document.getElementById('mood-status');
+  const attentionScoreEl = document.getElementById('attention-score');
+  const distractionCountEl = document.getElementById('distraction-count');
+  const lastCheckEl = document.getElementById('last-check');
+  const motivatorTextEl = document.getElementById('motivator-text');
+  let videoStream = null;
+  let analysisInterval = null;
+  let distractionCount = 0;
+  let hiddenCanvas = null;
+  let hiddenCtx = null;
+  let lastFrameData = null;
+
+  if (courseTitleHeader) courseTitleHeader.textContent = title;
+  if (moduleTitle) moduleTitle.textContent = title;
+  if (moduleDesc) moduleDesc.textContent = desc;
+  if (notesTitle) notesTitle.textContent = title;
+  if (notesDesc) notesDesc.textContent = desc;
+
+  // Render curriculum modules from actual course data
+  if (currentCourse && currentCourse.dailyPlan && lessonList) {
+    lessonList.innerHTML = '';
+    const totalModules = currentCourse.dailyPlan.length;
+    const completedModules = currentCourse.dailyPlan.filter(m => m.completed).length;
+    const currentModuleIndex = currentCourse.dailyPlan.findIndex(m => !m.completed);
+    
+    // Update progress pill
+    const progressPill = document.getElementById('progress-pill');
+    if (progressPill) {
+      progressPill.textContent = `${Math.round((completedModules / totalModules) * 100)}% Done`;
+    }
+
+    currentCourse.dailyPlan.forEach((module, idx) => {
+      const li = document.createElement('li');
+      const duration = module.duration ? `${module.duration.toFixed(1)}h` : '45 min';
+      
+      if (module.completed) {
+        li.className = 'done';
+      } else if (idx === currentModuleIndex) {
+        li.className = 'active';
+      } else if (idx > currentModuleIndex) {
+        li.className = 'locked';
+      }
+      
+      li.innerHTML = `${module.title} <span>${duration}</span>`;
+      lessonList.appendChild(li);
+    });
+
+    // Update progress bar and text
+    const progress = Math.round((completedModules / totalModules) * 100);
+    if (progressFill) progressFill.style.width = `${progress}%`;
+    if (progressText) progressText.textContent = `${completedModules} / ${totalModules} Modules • ${progress}%`;
+  }
+
+  // Embed YouTube video
+  if (videoId && videoContainer) {
+    console.log('Course Player - Embedding video:', videoId);
+    const embedUrl = `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&autoplay=1`;
+    videoContainer.innerHTML = `<iframe style="width:100%;height:100%;border:none;border-radius:18px;" src="${embedUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+  } else {
+    console.error('Course Player - No video ID provided');
+  }
+
+  // Back button navigation
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      window.location.href = '/studymate/courses/';
+    });
+  }
+
+  // Tab switching
+  const tabs = document.querySelectorAll('.tab');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+    });
+  });
+
+  // ---------------------
+  // Camera-based attention (lightweight motion heuristic)
+  // ---------------------
+  function updateStatus(el, text, variant) {
+    if (!el) return;
+    el.textContent = text;
+    el.classList.remove('pill-success','pill-warn','pill-danger');
+    el.classList.add(variant);
+  }
+
+  function setMotivation(message) {
+    if (motivatorTextEl) {
+      motivatorTextEl.textContent = message;
+    }
+  }
+
+  function analyzeFrame() {
+    if (!videoStream || !hiddenCanvas || !hiddenCtx) return;
+    const videoTrack = videoStream.getVideoTracks()[0];
+    const settings = videoTrack.getSettings();
+    const w = settings.width || 320;
+    const h = settings.height || 240;
+    hiddenCanvas.width = w;
+    hiddenCanvas.height = h;
+
+    const videoEl = document.createElement('video');
+    videoEl.srcObject = videoStream;
+    videoEl.play();
+    hiddenCtx.drawImage(videoEl, 0, 0, w, h);
+    const frame = hiddenCtx.getImageData(0, 0, w, h);
+
+    if (lastFrameData) {
+      let diff = 0;
+      for (let i = 0; i < frame.data.length; i += 4) {
+        diff += Math.abs(frame.data[i] - lastFrameData[i]);
+      }
+      const avgDiff = diff / (frame.data.length / 4);
+
+      // Heuristic: low movement => possibly looking away; very high spikes => distraction
+      const attentionScore = Math.max(0, Math.min(100, 120 - avgDiff / 2));
+      const distractionSpike = avgDiff > 12000; // crude spike detector
+      const lowAttention = attentionScore < 45;
+
+      if (attentionScoreEl) attentionScoreEl.textContent = `${attentionScore.toFixed(0)}`;
+      if (lastCheckEl) lastCheckEl.textContent = new Date().toLocaleTimeString();
+
+      if (distractionSpike) {
+        distractionCount += 1;
+        if (distractionCountEl) distractionCountEl.textContent = distractionCount;
+      }
+
+      if (lowAttention) {
+        updateStatus(attentionStatusEl, 'Needs Focus', 'pill-danger');
+        setMotivation('Quick refocus: try summarizing the last 2 minutes aloud.');
+      } else {
+        updateStatus(attentionStatusEl, 'Focused', 'pill-success');
+      }
+
+      // Lightweight mood guess based on brightness (informational only)
+      let brightness = 0;
+      for (let i = 0; i < frame.data.length; i += 4 * 50) {
+        brightness += frame.data[i];
+      }
+      brightness = brightness / (frame.data.length / (4 * 50));
+      if (brightness < 40) {
+        updateStatus(moodStatusEl, 'Low energy (dim light)', 'pill-warn');
+        setMotivation('Light boost: adjust lighting or take a 30-second stretch.');
+      } else if (brightness > 200) {
+        updateStatus(moodStatusEl, 'Bright scene', 'pill-success');
+      } else {
+        updateStatus(moodStatusEl, 'Neutral', 'pill-success');
+      }
+
+      // Simple distraction hint
+      if (distractionSpike) {
+        setMotivation('Noticed a spike — reduce nearby distractions or phone usage.');
+      }
+    }
+
+    lastFrameData = frame.data.slice(0);
+  }
+
+  async function enableCamera() {
+    try {
+      updateStatus(camStatusEl, 'Requesting...', 'pill-warn');
+      videoStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      updateStatus(camStatusEl, 'Active', 'pill-success');
+      setMotivation('Camera on: stay present, we got this!');
+      hiddenCanvas = document.createElement('canvas');
+      hiddenCtx = hiddenCanvas.getContext('2d');
+      if (analysisInterval) clearInterval(analysisInterval);
+      analysisInterval = setInterval(analyzeFrame, 1500);
+    } catch (err) {
+      console.error('Camera error', err);
+      updateStatus(camStatusEl, 'Blocked', 'pill-danger');
+      setMotivation('Camera blocked. Allow access for focus nudges.');
+    }
+  }
+
+  if (enableCameraBtn) {
+    enableCameraBtn.addEventListener('click', enableCamera);
+  }
+
+  // Seed motivator rotation
+  const quickPrompts = [
+    'Try note-taking: 3 bullet points per section.',
+    'Mini-challenge: explain this concept to a rubber duck.',
+    'Hydrate check: sip water and resume.',
+    'Pause and recap: what did you just learn?',
+    'Adjust posture; small tweaks keep energy up.'
+  ];
+  setInterval(() => {
+    const pick = quickPrompts[Math.floor(Math.random() * quickPrompts.length)];
+    setMotivation(pick);
+  }, 60000);
+</script>
+
+</body>
+</html>

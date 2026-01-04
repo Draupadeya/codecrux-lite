@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Course Player</title>
+</head>
+<body>
+    <h1>Course Player Button Test</h1>
+    <p>This page will load sample course data and test the "Continue Learning" button.</p>
+    
+    <button id="testBtn">Generate Test Course Data</button>
+    <button id="testBtn2">View Courses</button>
+    
+    <script>
+        // Sample course data to test
+        const sampleCourse = {
+            courseTitle: "Web Development Fundamentals",
+            courseDescription: "Learn HTML, CSS, and JavaScript from scratch",
+            courseLink: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            videoID: "dQw4w9WgXcQ",
+            progress: 25,
+            dailyPlan: [
+                { title: "Introduction to HTML", duration: 2, completed: true },
+                { title: "CSS Styling Basics", duration: 1.5, completed: true },
+                { title: "JavaScript Fundamentals", duration: 2.5, completed: false },
+                { title: "DOM Manipulation", duration: 2, completed: false },
+                { title: "Project: Build a Portfolio", duration: 3, completed: false }
+            ]
+        };
+        
+        document.getElementById('testBtn').onclick = () => {
+            localStorage.setItem('generatedCourses', JSON.stringify([sampleCourse]));
+            alert('Test course data saved to localStorage');
+        };
+        
+        document.getElementById('testBtn2').onclick = () => {
+            window.location.href = '/frontend/index.html';
+        };
+    </script>
+</body>
+</html>

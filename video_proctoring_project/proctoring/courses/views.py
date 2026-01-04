@@ -12,7 +12,6 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from youtube_transcript_api import YouTubeTranscriptApi
 import requests
-import google.generativeai as genai
 from dotenv import load_dotenv
 import base64
 import numpy as np
@@ -26,29 +25,52 @@ except Exception:
 # Load environment variables
 load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
+MISTRAL_MODEL = os.getenv("MISTRAL_MODEL", "mistral-small-latest")
+MISTRAL_API_URL = os.getenv("MISTRAL_API_URL", "https://api.mistral.ai/v1/chat/completions")
 ASSEMBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY")
 
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY not found in environment variables!")
+if not MISTRAL_API_KEY:
+    raise ValueError("MISTRAL_API_KEY not found in environment variables!")
 
-print(f"✓ Loaded API Key: {GEMINI_API_KEY[:10]}...")
-
-# Configure Gemini
-genai.configure(api_key=GEMINI_API_KEY)
+print(f"✓ Loaded Mistral Key: {MISTRAL_API_KEY[:10]}...")
 
 # Paths
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
+SPARKLESS_ROOT = BASE_DIR.parent  # Go up to d:\sparkless 1
 TRANSCRIPTS_DIR = BASE_DIR / "backend" / "transcripts"
 TRANSCRIPTS_DIR.mkdir(exist_ok=True)
 
 AUDIO_DIR = BASE_DIR / "backend" / "audio"
 AUDIO_DIR.mkdir(exist_ok=True)
 
-FRONTEND_PATH = BASE_DIR / "frontend"
+FRONTEND_PATH = SPARKLESS_ROOT / "frontend"
 
 # --- Helper Functions ---
+
+def mistral_chat(prompt, temperature=0.25, max_tokens=400):
+    """Call Mistral chat completion API and return text."""
+    try:
+        resp = requests.post(
+            MISTRAL_API_URL,
+            headers={
+                "Authorization": f"Bearer {MISTRAL_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": MISTRAL_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            },
+            timeout=60,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+    except Exception as exc:
+        print(f"Mistral call failed: {exc}")
+        return ""
 
 def extract_youtube_id(url):
     """Extracts YouTube video ID from standard or short URLs."""
@@ -84,13 +106,53 @@ def get_transcript_with_timestamps(video_id):
             return json.load(f)
     
     try:
-        transcript_list = YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
+        transcript_list = None
+
+        if hasattr(YouTubeTranscriptApi, "get_transcript"):
+            try:
+                transcript_list = YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
+            except Exception as inner:
+                print(f"YouTubeTranscriptApi.get_transcript failed: {inner}")
+
+        if transcript_list is None and hasattr(YouTubeTranscriptApi, "list_transcripts"):
+            try:
+                transcript_list = YouTubeTranscriptApi.list_transcripts(video_id).find_transcript(['en']).fetch()
+            except Exception as inner:
+                print(f"YouTubeTranscriptApi.list_transcripts failed: {inner}")
+
+        # Fallback to yt-dlp if YouTubeTranscriptApi is unavailable
+        if transcript_list is None:
+            print(f"Falling back to yt-dlp for {video_id}...")
+            try:
+                subprocess.run([
+                    "yt-dlp", "--write-auto-subs", "--sub-lang", "en", "--skip-download",
+                    "-o", str(TRANSCRIPTS_DIR / f"{video_id}"),
+                    f"https://www.youtube.com/watch?v={video_id}"
+                ], check=True, capture_output=True, text=True, timeout=60)
+                
+                vtt_files = list(TRANSCRIPTS_DIR.glob(f"{video_id}*.vtt"))
+                if vtt_files:
+                    vtt_file = vtt_files[0]
+                    lines = vtt_file.read_text(encoding="utf-8").splitlines()
+                    transcript_list = [
+                        {"text": line, "start": 0, "duration": 0}
+                        for line in lines
+                        if line.strip() and "-->" not in line and not line.strip().isdigit() and "WEBVTT" not in line and not line.startswith("NOTE")
+                    ]
+                    vtt_file.unlink()
+            except Exception as fallback_err:
+                print(f"yt-dlp fallback failed: {fallback_err}")
+
+        if transcript_list is None:
+            print(f"No transcript available for {video_id}; using mock")
+            return [{"text": f"Content for video {video_id}", "start": 0, "duration": 0}]
+
         with open(transcript_json_path, 'w', encoding='utf-8') as f:
             json.dump(transcript_list, f)
         return transcript_list
     except Exception as e:
-        print(f"YouTubeTranscriptApi failed: {e}")
-        return None
+        print(f"get_transcript_with_timestamps failed: {e}")
+        return [{"text": f"Content for video {video_id}", "start": 0, "duration": 0}]
 
 def get_transcript_text(video_id):
     """Get plain text transcript (fallback)"""
@@ -133,22 +195,14 @@ def get_transcript_text(video_id):
 def generate_course_overview(full_transcript_text, course_title):
     """Generate 2-4 line overview of the entire course."""
     try:
-        model = genai.GenerativeModel(GEMINI_MODEL)
-        
         context_text = full_transcript_text[:5000] if len(full_transcript_text) > 5000 else full_transcript_text
-        
-        prompt = f"""Analyze this video course transcript and provide a 2-4 sentence overview of what concepts and topics are taught.
-
-Course Title: {course_title}
-
-Transcript Sample:
-{context_text}
-
-Provide ONLY the overview text, no additional formatting or labels."""
-
-        response = model.generate_content(prompt)
-        overview = response.text.strip()
-        
+        prompt = (
+            "Analyze this video course transcript and provide a 2-4 sentence overview of what concepts and topics are taught.\n\n"
+            f"Course Title: {course_title}\n\n"
+            f"Transcript Sample:\n{context_text}\n\n"
+            "Provide ONLY the overview text, no additional formatting or labels."
+        )
+        overview = mistral_chat(prompt, temperature=0.2, max_tokens=220)
         return overview
     
     except Exception as e:
@@ -188,8 +242,6 @@ def get_segment_transcript(transcript_list, start_time, end_time):
 def generate_segment_explanation(segment_text, segment_index, course_title):
     """Generate explanation for a segment."""
     try:
-        model = genai.GenerativeModel(GEMINI_MODEL)
-        
         prompt = f"""You are teaching the course: "{course_title}"
 
 Explain this segment (Part {segment_index}) in a clear and concise way:
@@ -204,9 +256,7 @@ Provide a 3-5 sentence explanation covering:
 
 Keep it educational and easy to understand."""
 
-        response = model.generate_content(prompt)
-        explanation = response.text.strip()
-        
+        explanation = mistral_chat(prompt, temperature=0.25, max_tokens=320)
         return explanation
     
     except Exception as e:
@@ -408,22 +458,18 @@ def ask_question(request):
             context_end = int((current_time + 120) * chars_per_second)
             context_text = full_transcript[context_start:context_end]
         
-        # Generate answer using Gemini
-        model = genai.GenerativeModel(GEMINI_MODEL)
-        
         prompt = f"""You are a helpful tutor for the course: "{course_title}"
 
-Student's Question: {question}
+    Student's Question: {question}
 
-Relevant Course Content (around timestamp {current_time}s):
-{context_text}
+    Relevant Course Content (around timestamp {current_time}s):
+    {context_text}
 
-Provide a clear, concise answer based on the course content. If the answer isn't directly in the provided content, use your knowledge to explain the concept while noting it may not be explicitly covered in this part of the course.
+    Provide a clear, concise answer based on the course content. If the answer isn't directly in the provided content, use your knowledge to explain the concept while noting it may not be explicitly covered in this part of the course.
 
-Keep the answer conversational and educational."""
+    Keep the answer conversational and educational."""
 
-        response = model.generate_content(prompt)
-        answer = response.text.strip()
+        answer = mistral_chat(prompt, temperature=0.25, max_tokens=320)
         
         print(f"✅ Generated answer\n")
         
