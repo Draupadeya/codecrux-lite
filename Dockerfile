@@ -31,8 +31,9 @@ WORKDIR $HOME/app/proctoring
 # Collect static files
 RUN python manage.py collectstatic --noinput
 
-# Expose port 7860
+# Expose container port (Fly sets $PORT at runtime)
 EXPOSE 7860
 
-# Start the application
-CMD ["gunicorn", "proctoring.wsgi:application", "--bind", "0.0.0.0:7860", "--workers", "2", "--timeout", "120"]
+# Start the application using the PORT env var (fallback to 7860)
+ENV PORT=7860
+CMD ["sh", "-c", "gunicorn proctoring.wsgi:application --bind 0.0.0.0:${PORT} --workers 2 --timeout 120"]

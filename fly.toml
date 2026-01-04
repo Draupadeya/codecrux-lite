@@ -1,0 +1,39 @@
+app = "replace-with-your-app-name"
+kill_signal = "SIGINT"
+kill_timeout = 5
+processes = []
+
+[build]
+  image = ""
+  dockerfile = "Dockerfile"
+
+[env]
+  DJANGO_SETTINGS_MODULE = "proctoring.settings"
+  # Set other env vars in Fly dashboard or with `fly secrets set`
+
+[experimental]
+  allowed_public_ports = [7860]
+  auto_rollback = true
+
+[[services]]
+  internal_port = 7860
+  protocol = "tcp"
+
+  [services.concurrency]
+    type = "requests"
+    hard_limit = 25
+    soft_limit = 20
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls","http"]
+    port = 443
+
+  [[services.tcp_checks]]
+    interval = 10000
+    timeout = 2000
+    grace_period = 10000
+    restart_limit = 0
