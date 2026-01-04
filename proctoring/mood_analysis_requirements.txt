@@ -1,0 +1,13 @@
+# Additional requirements for mood analysis feature
+# Install with: pip install -r mood_analysis_requirements.txt
+
+# Core AI/ML libraries
+deepface>=0.0.79          # Facial emotion recognition
+tensorflow>=2.13.0        # Deep learning framework (required by DeepFace)
+opencv-python>=4.8.0      # Computer vision library
+pillow>=10.0.0            # Image processing
+
+# Optional but recommended
+# tf-keras>=2.13.0        # Keras for TensorFlow
+# mtcnn>=0.1.1            # Alternative face detector
+# retina-face>=0.0.13     # Another face detector option

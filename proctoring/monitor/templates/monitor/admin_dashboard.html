@@ -1,0 +1,2369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Admin Dashboard - CodeCrux</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#f5f6fa;
+  --sidebar:#1f1b4d;
+  --primary:#6c63ff;
+  --card:#ffffff;
+  --text:#1f2937;
+  --muted:#6b7280;
+  --radius:14px;
+  --success:#10b981;
+  --warning:#f59e0b;
+  --danger:#ef4444;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Segoe UI",sans-serif;}
+body{background:var(--bg);color:var(--text);}
+.view-hidden{display:none!important;}
+
+/* ---------- LAYOUT ---------- */
+.wrapper{display:flex;}
+
+/* ---------- SIDEBAR ---------- */
+.sidebar{
+  width:60px;
+  background:linear-gradient(180deg,#1f1b4d,#2b246d);
+  min-height:100vh;
+  transition:.3s;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
+.sidebar:hover{width:180px;}
+.sidebar .logo{color:#fff;font-weight:600;padding:16px 10px;white-space:nowrap;overflow:hidden;}
+.sidebar .logo span{opacity:0;transition:opacity 0.2s ease;}
+.sidebar:hover .logo span{opacity:1;}
+.menu{margin-top:20px;flex:1;}
+.menu a{display:flex;align-items:center;gap:15px;padding:14px 18px;color:#c7c7ff;text-decoration:none;transition:all 0.3s ease;white-space:nowrap;cursor:pointer;position:relative;}
+.menu a:hover{background:rgba(255,255,255,.08);color:#fff;transform:translateX(4px);}
+.menu a:active{transform:translateX(2px);}
+.menu a.active{background:var(--primary);color:#fff;box-shadow:0 4px 12px rgba(108, 99, 255, 0.3);}
+.icon{width:24px;text-align:center;flex-shrink:0;}
+.text{white-space:nowrap;opacity:0;transition:opacity 0.2s ease;}
+.sidebar:hover .text{opacity:1;}
+.bottom-menu{padding:20px 0;}
+.bottom-menu a{display:flex;align-items:center;gap:15px;padding:14px 18px;color:#c7c7ff;text-decoration:none;transition:.2s;white-space:nowrap;}
+.bottom-menu a:hover{background:rgba(255,255,255,.08);color:#fff;}
+.bottom-menu a.logout{color:#f87171;}
+.bottom-menu a.logout:hover{background:rgba(248,113,113,.1);}
+
+/* ---------- MAIN ---------- */
+.main{flex:1;padding:25px;max-height:100vh;overflow-y:auto;}
+
+/* ---------- TOP BAR ---------- */
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:25px;}
+.search{width:50%;}
+.search input{width:100%;padding:14px 18px;border-radius:30px;border:none;outline:none;box-shadow:0 2px 10px rgba(0,0,0,.05);}
+.profile{display:flex;align-items:center;gap:10px;}
+.avatar{width:42px;height:42px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:bold;}
+
+/* ---------- STATS ---------- */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin-bottom:25px;}
+.card{background:var(--card);padding:20px;border-radius:var(--radius);box-shadow:0 10px 20px rgba(0,0,0,.05);}
+.card h4{font-size:14px;color:var(--muted);}
+.card h2{margin-top:10px;}
+
+/* ---------- COURSE GRID ---------- */
+.course-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;margin-bottom:25px;}
+.course-card{background:var(--card);border-radius:var(--radius);overflow:hidden;box-shadow:0 10px 20px rgba(0,0,0,.05);transition:all 0.3s ease;}
+.course-card:hover{transform:translateY(-8px);box-shadow:0 20px 40px rgba(0,0,0,.12);}
+.course-card:active{transform:translateY(-4px);}
+.course-thumb{height:140px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);display:flex;align-items:center;justify-content:center;color:#fff;font-size:48px;}
+.course-body{padding:20px;}
+.course-body h3{font-size:18px;margin-bottom:8px;}
+.course-body p{color:var(--muted);font-size:14px;margin-bottom:12px;}
+.course-meta{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);}
+.course-level{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+.level-beginner{background:#e7f8ef;color:#1f9d55;}
+.level-intermediate{background:#eef3ff;color:#4f46e5;}
+.level-advanced{background:#fde8e8;color:#dc2626;}
+.course-stats{display:flex;gap:15px;margin-top:12px;padding-top:12px;border-top:1px solid #eee;}
+.course-stats span{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);}
+.add-course-card{background:var(--card);border-radius:var(--radius);border:2px dashed #ddd;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;cursor:pointer;transition:all 0.3s ease;}
+.add-course-card:hover{border-color:var(--primary);background:#f8f8ff;transform:scale(1.02);}
+.add-course-card i{font-size:48px;color:#ddd;margin-bottom:12px;transition:all 0.3s ease;}
+.add-course-card:hover i{color:var(--primary);transform:rotate(90deg);}
+.add-course-card span{color:var(--muted);font-weight:600;}
+
+/* ---------- TABLE ---------- */
+.table-card{background:var(--card);border-radius:var(--radius);overflow:hidden;}
+table{width:100%;border-collapse:collapse;}
+th,td{padding:14px 16px;text-align:left;font-size:14px;}
+th{background:#f3f4f6;color:var(--muted);}
+tr:not(:last-child){border-bottom:1px solid #eee;}
+.badge{padding:5px 10px;border-radius:20px;font-size:12px;}
+.badge-success{background:#e7f8ef;color:#1f9d55;}
+.badge-warning{background:#fff4e5;color:#f59e0b;}
+.badge-danger{background:#fde8e8;color:#dc2626;}
+.badge-info{background:#eef3ff;color:#4f46e5;}
+.btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.3s ease;position:relative;overflow:hidden;}
+.btn-primary{background:var(--primary);color:#fff;}
+.btn-primary:hover{background:#5a52e0;transform:translateY(-2px);box-shadow:0 8px 16px rgba(108, 99, 255, 0.3);}
+.btn-primary:active{transform:translateY(0);}
+.btn-outline{background:transparent;border:1px solid #ddd;color:var(--text);transition:all 0.3s ease;}
+.btn-outline:hover{border-color:var(--primary);color:var(--primary);transform:translateY(-2px);}
+.btn-outline:active{transform:translateY(0);}
+.btn-sm{padding:6px 12px;font-size:12px;}
+
+/* Button ripple effect */
+.btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+    pointer-events: none;
+}
+.btn:active::before {
+    width: 300px;
+    height: 300px;
+}
+
+/* ---------- MODAL ---------- */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:1000;}
+.modal-overlay.active{display:flex;}
+.modal{background:#fff;width:560px;max-width:90%;border-radius:var(--radius);padding:28px;box-shadow:0 20px 50px rgba(0,0,0,0.2);max-height:90vh;overflow-y:auto;}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
+.modal-header h2{font-size:22px;}
+.close-btn{font-size:24px;cursor:pointer;background:none;border:none;color:var(--muted);}
+.close-btn:hover{color:var(--text);}
+.form-group{margin-bottom:18px;}
+.form-group label{font-weight:600;font-size:14px;display:block;margin-bottom:6px;}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:12px;border-radius:10px;border:1px solid #e5e7eb;font-size:14px;outline:none;}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--primary);}
+.form-group textarea{min-height:100px;resize:vertical;}
+.row{display:flex;gap:14px;}
+.row .form-group{flex:1;}
+.modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:24px;padding-top:20px;border-top:1px solid #eee;}
+
+/* ---------- FAB ---------- */
+.fab{position:fixed;right:25px;bottom:25px;width:56px;height:56px;border-radius:50%;background:var(--primary);color:#fff;font-size:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 10px 20px rgba(0,0,0,.2);border:none;transition:all 0.3s ease;overflow:hidden;z-index:999;}
+.fab:hover{transform:scale(1.15);box-shadow:0 15px 30px rgba(108, 99, 255, 0.4);}
+.fab:active{transform:scale(0.95);}
+
+/* FAB ripple effect */
+.fab::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+    pointer-events: none;
+}
+.fab:active::before {
+    width: 200px;
+    height: 200px;
+}
+
+/* ---------- SECTION HEADER ---------- */
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
+.section-header h2{font-size:24px;font-weight:700;}
+.section-header p{color:var(--muted);margin-top:4px;}
+
+/* ---------- PROGRESS BAR ---------- */
+.progress-bar{height:6px;background:#e2e8f0;border-radius:99px;overflow:hidden;}
+.progress-fill{height:100%;background:var(--primary);border-radius:99px;}
+</style>
+</head>
+<body>
+{% csrf_token %}
+<input type="hidden" id="csrf-token" value="{{ csrf_token }}">
+
+<div class="wrapper">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo">🎓 <span>CodeCrux</span></div>
+    <div class="menu">
+      <a class="active" onclick="showView('dashboard')"><span class="icon">🏠</span><span class="text">Dashboard</span></a>
+      <a onclick="showView('courses')"><span class="icon">📘</span><span class="text">Courses</span></a>
+      <a onclick="showView('exams')"><span class="icon">📝</span><span class="text">Exams</span></a>
+      <a onclick="showView('students')"><span class="icon">👥</span><span class="text">Students</span></a>
+      <a onclick="showView('analytics')"><span class="icon">📊</span><span class="text">Analytics</span></a>
+      <a onclick="showView('settings')"><span class="icon">⚙️</span><span class="text">Settings</span></a>
+    </div>
+    <div class="bottom-menu">
+      <a href="/logout/" class="logout"><span class="icon">🚪</span><span class="text">Sign Out</span></a>
+    </div>
+  </aside>
+
+  <!-- ==================== DASHBOARD VIEW ==================== -->
+  <main class="main" id="dashboard-view">
+    <div class="topbar">
+      <div class="search"><input type="text" placeholder="Search courses, students, or exams..."></div>
+      <div class="profile">
+        <div class="avatar">{{ faculty_initials|default:"FA" }}</div>
+        <div>
+          <strong>{{ faculty_name|default:"Faculty" }}</strong><br>
+          <small style="color:var(--muted);">{{ faculty_designation|default:"Faculty" }}</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="card"><h4>Total Courses</h4><h2 id="stat-courses">{{ total_courses|default:"0" }}</h2></div>
+      <div class="card"><h4>Active Students</h4><h2 id="stat-students">{{ total_students|default:"0" }}</h2></div>
+      <div class="card"><h4>Total Enrollments</h4><h2 id="stat-enrollments">{{ total_enrollments|default:"0" }}</h2></div>
+      <div class="card"><h4>Avg Completion</h4><h2 id="stat-completion">{{ avg_completion|default:"0" }}%</h2></div>
+    </div>
+
+    <div class="section-header">
+      <div>
+        <h2>Recent Courses</h2>
+        <p>Latest courses you've created</p>
+      </div>
+      <button class="btn btn-primary" onclick="showView('courses')">View All</button>
+    </div>
+
+    <div class="course-grid" id="dashboard-courses">
+      {% for course in recent_courses %}
+      <div class="course-card">
+        <div class="course-thumb">📚</div>
+        <div class="course-body">
+          <h3>{{ course.title }}</h3>
+          <p>{{ course.description|truncatechars:60 }}</p>
+          <div class="course-meta">
+            <span class="course-level level-{{ course.level }}">{{ course.get_level_display }}</span>
+            <span>{{ course.duration|default:"--" }}</span>
+          </div>
+          <div class="course-stats">
+            <span><i class="fas fa-users"></i> {{ course.enrollments.count }} students</span>
+            <span><i class="fas fa-book"></i> {{ course.modules.count }} modules</span>
+          </div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="add-course-card" onclick="showView('courses'); openCourseModal();">
+        <i class="fas fa-plus-circle"></i>
+        <span>Create Your First Course</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="section-header" style="margin-top:30px;">
+      <div>
+        <h2>Student Progress</h2>
+        <p>Track your students' learning journey</p>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Course</th>
+            <th>Progress</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="student-progress-table">
+          {% for enrollment in recent_enrollments %}
+          <tr>
+            <td>{{ enrollment.student.full_name }}</td>
+            <td>{{ enrollment.course.title }}</td>
+            <td>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div class="progress-bar" style="width:100px;"><div class="progress-fill" style="width:{{ enrollment.progress }}%;"></div></div>
+                <span>{{ enrollment.progress|floatformat:0 }}%</span>
+              </div>
+            </td>
+            <td>
+              {% if enrollment.completed %}
+              <span class="badge badge-success">Completed</span>
+              {% elif enrollment.progress > 50 %}
+              <span class="badge badge-info">In Progress</span>
+              {% else %}
+              <span class="badge badge-warning">Just Started</span>
+              {% endif %}
+            </td>
+            <td><a href="#" style="color:var(--primary);text-decoration:none;">View Details</a></td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5" style="text-align:center;padding:40px;color:var(--muted);">No student enrollments yet</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- ==================== COURSES VIEW ==================== -->
+  <main class="main view-hidden" id="courses-view">
+    <div class="topbar">
+      <div class="search"><input type="text" placeholder="Search courses..." id="course-search"></div>
+      <div class="profile">
+        <div class="avatar">{{ faculty_initials|default:"FA" }}</div>
+        <div>
+          <strong>{{ faculty_name|default:"Faculty" }}</strong><br>
+          <small style="color:var(--muted);">{{ faculty_designation|default:"Faculty" }}</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <div>
+        <h2>My Courses</h2>
+        <p>Manage and create courses for your students</p>
+      </div>
+      <button class="btn btn-primary" onclick="openCourseModal()"><i class="fas fa-plus" style="margin-right:8px;"></i>Create Course</button>
+    </div>
+
+    <div class="course-grid" id="courses-grid">
+      {% for course in courses %}
+      <div class="course-card" data-id="{{ course.id }}">
+        <div class="course-thumb" style="background:linear-gradient(135deg,{% cycle '#667eea,#764ba2' '#10b981,#34d399' '#f59e0b,#fbbf24' '#ef4444,#f87171' %});">
+          {% if course.thumbnail %}
+          <img src="{{ course.thumbnail.url }}" style="width:100%;height:100%;object-fit:cover;">
+          {% else %}
+          📚
+          {% endif %}
+        </div>
+        <div class="course-body">
+          <div style="display:flex;justify-content:space-between;align-items:start;">
+            <h3>{{ course.title }}</h3>
+            {% if course.is_published %}
+            <span class="badge badge-success">Published</span>
+            {% else %}
+            <span class="badge badge-warning">Draft</span>
+            {% endif %}
+          </div>
+          <p>{{ course.description|truncatechars:80 }}</p>
+          <div class="course-meta">
+            <span class="course-level level-{{ course.level }}">{{ course.get_level_display }}</span>
+            <span>{{ course.category|default:"General" }}</span>
+          </div>
+          <div class="course-stats">
+            <span><i class="fas fa-users"></i> {{ course.enrollments.count }} students</span>
+            <span><i class="fas fa-book"></i> {{ course.modules.count }} modules</span>
+            <span><i class="fas fa-clock"></i> {{ course.duration|default:"--" }}</span>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px;">
+            <button class="btn btn-outline btn-sm" onclick="editCourse({{ course.id }})"><i class="fas fa-edit"></i> Edit</button>
+            <button class="btn btn-outline btn-sm" onclick="viewEnrollments({{ course.id }})"><i class="fas fa-users"></i> Students</button>
+            <button class="btn btn-outline btn-sm" style="color:#ef4444;border-color:#ef4444;" onclick="deleteCourse({{ course.id }}, '{{ course.title|escapejs }}')"><i class="fas fa-trash"></i> Delete</button>
+          </div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="add-course-card" onclick="openCourseModal()">
+        <i class="fas fa-plus-circle"></i>
+        <span>Create Your First Course</span>
+      </div>
+      {% endfor %}
+
+      <div class="add-course-card" onclick="openCourseModal()">
+        <i class="fas fa-plus-circle"></i>
+        <span>Add New Course</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- ==================== STUDENTS VIEW ==================== -->
+  <main class="main view-hidden" id="students-view">
+    <div class="topbar">
+      <div class="search"><input type="text" placeholder="Search students..." id="student-search" onkeyup="filterStudents()"></div>
+      <div class="profile">
+        <div class="avatar">{{ faculty_initials|default:"FA" }}</div>
+        <div>
+          <strong>{{ faculty_name|default:"Faculty" }}</strong><br>
+          <small style="color:var(--muted);">{{ faculty_designation|default:"Faculty" }}</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <div>
+        <h2>Students</h2>
+        <p>All registered students ({{ students|length }} total)</p>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <table id="students-table">
+        <thead>
+          <tr>
+            <th>Student Name</th>
+            <th>Roll Number</th>
+            <th>Date of Birth</th>
+            <th>Enrolled Courses</th>
+            <th>Avg Progress</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for student in students %}
+          <tr>
+            <td>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div style="width:36px;height:36px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;">
+                  {{ student.full_name|slice:":2"|upper }}
+                </div>
+                {{ student.full_name }}
+              </div>
+            </td>
+            <td><code style="background:#f3f4f6;padding:4px 8px;border-radius:4px;">{{ student.roll_number }}</code></td>
+            <td>{{ student.dob|date:"M d, Y" }}</td>
+            <td>
+              {% if student.enrolled_count > 0 %}
+              <span class="badge badge-info">{{ student.enrolled_count }} course{{ student.enrolled_count|pluralize }}</span>
+              {% else %}
+              <span class="badge badge-warning">Not enrolled</span>
+              {% endif %}
+            </td>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="progress-bar" style="width:80px;"><div class="progress-fill" style="width:{{ student.avg_progress|floatformat:0 }}%;"></div></div>
+                <span>{{ student.avg_progress|floatformat:0 }}%</span>
+              </div>
+            </td>
+            <td>
+              <button class="btn btn-outline btn-sm" onclick="viewStudentDetails({{ student.id }})"><i class="fas fa-eye"></i> View</button>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" style="text-align:center;padding:40px;color:var(--muted);">
+              <i class="fas fa-users" style="font-size:48px;color:#ddd;margin-bottom:12px;display:block;"></i>
+              No students registered yet
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- ==================== EXAMS VIEW ==================== -->
+  <main class="main view-hidden" id="exams-view">
+    <div class="topbar">
+      <div class="search"><input type="text" placeholder="Search exams..."></div>
+      <div class="profile">
+        <div class="avatar">{{ faculty_initials|default:"FA" }}</div>
+        <div>
+          <strong>{{ faculty_name|default:"Faculty" }}</strong><br>
+          <small style="color:var(--muted);">{{ faculty_designation|default:"Faculty" }}</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <div>
+        <h2>Exams</h2>
+        <p>Create and manage exams for your courses</p>
+      </div>
+      <button class="btn btn-primary" onclick="openExamModal()"><i class="fas fa-plus" style="margin-right:8px;"></i>Create Exam</button>
+    </div>
+
+    <!-- Exams List -->
+    <div id="exams-list-container">
+      <div id="exams-empty-state" style="text-align:center;padding:60px;color:var(--muted);">
+        <i class="fas fa-file-alt" style="font-size:64px;color:#ddd;"></i>
+        <h3 style="margin-top:20px;color:var(--text);">No Exams Yet</h3>
+        <p>Create your first exam to assess student knowledge</p>
+      </div>
+      <div id="exams-grid" class="grid" style="display:none;"></div>
+    </div>
+  </main>
+
+  <!-- ==================== ANALYTICS VIEW ==================== -->
+  <main class="main view-hidden" id="analytics-view">
+    <div class="topbar">
+      <div class="search"><input type="text" placeholder="Search..."></div>
+      <div class="profile">
+        <div class="avatar">{{ faculty_initials|default:"FA" }}</div>
+        <div>
+          <strong>{{ faculty_name|default:"Faculty" }}</strong><br>
+          <small style="color:var(--muted);">{{ faculty_designation|default:"Faculty" }}</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <div>
+        <h2>Analytics</h2>
+        <p>Live insights from student interactions and exam attempts</p>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="card" style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;">
+        <h4 style="color:rgba(255,255,255,0.8);">Avg Marks</h4>
+        <h2 id="analytics-avg-marks">--</h2>
+        <p style="margin-top:6px;color:rgba(255,255,255,0.85);font-size:13px;">Across all submitted attempts</p>
+      </div>
+      <div class="card" style="background:linear-gradient(135deg,#10b981,#34d399);color:#fff;">
+        <h4 style="color:rgba(255,255,255,0.8);">Concentration Score</h4>
+        <h2 id="analytics-concentration">--</h2>
+        <p style="margin-top:6px;color:rgba(255,255,255,0.85);font-size:13px;">Lower tab switches & violations → higher score</p>
+      </div>
+      <div class="card" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#fff;">
+        <h4 style="color:rgba(255,255,255,0.8);">Avg Time Spent</h4>
+        <h2 id="analytics-avg-time">--</h2>
+        <p style="margin-top:6px;color:rgba(255,255,255,0.85);font-size:13px;">Average duration per completed attempt</p>
+      </div>
+      <div class="card" style="background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;">
+        <h4 style="color:rgba(255,255,255,0.8);">Completion Rate</h4>
+        <h2 id="analytics-completion">--</h2>
+        <p style="margin-top:6px;color:rgba(255,255,255,0.85);font-size:13px;">Completed attempts vs assigned students</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <h3 style="margin-bottom:16px;">Performance & Focus Overview</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;align-items:center;">
+        <div style="height:280px;"><canvas id="chart-scores"></canvas></div>
+        <div style="height:280px;"><canvas id="chart-focus"></canvas></div>
+        <div style="height:280px;"><canvas id="chart-completion"></canvas></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ==================== SETTINGS VIEW ==================== -->
+  <main class="main view-hidden" id="settings-view">
+    <div class="topbar">
+      <div class="search"><input type="text" placeholder="Search..."></div>
+      <div class="profile">
+        <div class="avatar">{{ faculty_initials|default:"FA" }}</div>
+        <div>
+          <strong>{{ faculty_name|default:"Faculty" }}</strong><br>
+          <small style="color:var(--muted);">{{ faculty_designation|default:"Faculty" }}</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <div>
+        <h2>Settings</h2>
+        <p>Manage your account settings and preferences</p>
+      </div>
+    </div>
+
+    <div class="card" style="max-width:1200px;width:90%;">
+      <h3 style="margin-bottom:30px;font-size:24px;">Change Password</h3>
+      <form id="password-form" onsubmit="changePassword(event)" style="max-width:700px;">
+        <div class="form-group" style="margin-bottom:24px;">
+          <label style="font-size:15px;font-weight:500;">Current Password *</label>
+          <input type="password" id="current-password" placeholder="Enter current password" required style="padding:14px;font-size:15px;">
+        </div>
+        <div class="form-group" style="margin-bottom:24px;">
+          <label style="font-size:15px;font-weight:500;">New Password *</label>
+          <input type="password" id="new-password" placeholder="Enter new password" required minlength="8" style="padding:14px;font-size:15px;">
+          <small style="color:var(--muted);font-size:13px;margin-top:6px;display:block;">Minimum 8 characters required</small>
+        </div>
+        <div class="form-group" style="margin-bottom:24px;">
+          <label style="font-size:15px;font-weight:500;">Confirm New Password *</label>
+          <input type="password" id="confirm-password" placeholder="Confirm new password" required style="padding:14px;font-size:15px;">
+        </div>
+        <div style="display:flex;gap:16px;margin-top:32px;">
+          <button type="submit" class="btn btn-primary" style="padding:14px 32px;font-size:15px;">Update Password</button>
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('password-form').reset()" style="padding:14px 32px;font-size:15px;">Reset</button>
+        </div>
+      </form>
+    </div>
+  </main>
+</div>
+
+<!-- ==================== COURSE MODAL ==================== -->
+<div class="modal-overlay" id="course-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Create New Course</h2>
+      <button class="close-btn" onclick="closeCourseModal()">&times;</button>
+    </div>
+    <form id="course-form" onsubmit="saveCourse(event)">
+      <div class="form-group">
+        <label>Course Title *</label>
+        <input type="text" name="title" id="course-title" placeholder="e.g., Introduction to Python" required>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea name="description" id="course-description" placeholder="Describe what students will learn..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>YouTube URL *</label>
+        <input type="url" name="video_url" id="course-video-url" placeholder="https://www.youtube.com/watch?v=..." required>
+        <small style="color:var(--muted);font-size:12px;margin-top:4px;display:block;">Paste a YouTube video URL for the course content</small>
+      </div>
+      <div class="form-group">
+        <label>Study Hours *</label>
+        <input type="number" name="study_hours" id="course-study-hours" placeholder="e.g., 10" min="1" max="100" required value="4">
+        <small style="color:var(--muted);font-size:12px;margin-top:4px;display:block;">Total hours students should focus on this video. This will automatically divide the course into modules (~30 min each)</small>
+        <div id="modules-preview" style="margin-top:8px;padding:10px;background:#f0f9ff;border-radius:8px;font-size:12px;color:#0369a1;display:none;">
+          📚 This will create <strong id="modules-count">8</strong> modules for students to complete
+        </div>
+      </div>
+      <div class="row">
+        <div class="form-group">
+          <label>Category</label>
+          <select name="category" id="course-category">
+            <option value="">Select Category</option>
+            <option value="Web Development">Web Development</option>
+            <option value="Data Science">Data Science</option>
+            <option value="Machine Learning">Machine Learning</option>
+            <option value="Mobile Development">Mobile Development</option>
+            <option value="Cloud Computing">Cloud Computing</option>
+            <option value="Cybersecurity">Cybersecurity</option>
+            <option value="Database">Database</option>
+            <option value="DevOps">DevOps</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Level</label>
+          <select name="level" id="course-level">
+            <option value="beginner">Beginner</option>
+            <option value="intermediate">Intermediate</option>
+            <option value="advanced">Advanced</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="form-group">
+          <label>Duration (Display Text)</label>
+          <input type="text" name="duration" id="course-duration" placeholder="e.g., 4 weeks">
+          <small style="color:var(--muted);font-size:12px;margin-top:4px;display:block;">How long students have to complete this course</small>
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select name="is_published" id="course-published">
+            <option value="false">Draft</option>
+            <option value="true">Published</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Assign Students</label>
+        <div style="max-height:150px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:10px;padding:10px;">
+          {% for student in students %}
+          <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;">
+            <input type="checkbox" name="students" value="{{ student.id }}" style="width:16px;height:16px;">
+            <span>{{ student.full_name }}</span>
+            <small style="color:var(--muted);">({{ student.roll_number }})</small>
+          </label>
+          {% empty %}
+          <p style="color:var(--muted);text-align:center;padding:10px;">No students registered yet</p>
+          {% endfor %}
+        </div>
+        <small style="color:var(--muted);font-size:12px;margin-top:4px;display:block;">Select students to enroll in this course</small>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeCourseModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create Course</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<button class="fab" title="Create New Course" onclick="openCourseModal()">+</button>
+
+<!-- ==================== EXAM CREATOR MODAL ==================== -->
+<div class="modal-overlay" id="exam-modal">
+  <div class="modal" style="max-width:900px;max-height:90vh;overflow-y:auto;">
+    <div class="modal-header">
+      <h2 id="exam-modal-title">Create New Exam</h2>
+      <button class="close-btn" onclick="closeExamModal()">&times;</button>
+    </div>
+    
+    <!-- Progress Steps -->
+    <div style="display:flex;justify-content:center;padding:20px 0;border-bottom:1px solid #e5e7eb;margin-bottom:20px;">
+      <div class="exam-step active" data-step="1">
+        <div class="step-circle">1</div>
+        <span>Details</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="exam-step" data-step="2">
+        <div class="step-circle">2</div>
+        <span>Source</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="exam-step" data-step="3">
+        <div class="step-circle">3</div>
+        <span>Questions</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="exam-step" data-step="4">
+        <div class="step-circle">4</div>
+        <span>Settings</span>
+      </div>
+    </div>
+
+    <!-- Step 1: Exam Details -->
+    <div id="exam-step-1" class="exam-step-content">
+      <div class="form-group">
+        <label>Exam Title *</label>
+        <input type="text" id="exam-title" placeholder="e.g., Python Programming Mid-Term" required>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea id="exam-description" placeholder="Describe what this exam covers..."></textarea>
+      </div>
+      <div class="row">
+        <div class="form-group">
+          <label>Select Course (Optional)</label>
+          <select id="exam-course">
+            <option value="">No Course (Standalone Exam)</option>
+            {% for course in courses %}
+            <option value="{{ course.id }}">{{ course.title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Topic *</label>
+          <input type="text" id="exam-topic" placeholder="e.g., Data Structures, Python Basics">
+        </div>
+      </div>
+      <div class="row">
+        <div class="form-group">
+          <label>Start Date & Time *</label>
+          <input type="datetime-local" id="exam-scheduled-date" required>
+          <small style="color:var(--muted);font-size:12px;">When exam becomes available</small>
+        </div>
+        <div class="form-group">
+          <label>End Date & Time *</label>
+          <input type="datetime-local" id="exam-end-date" required>
+          <small style="color:var(--muted);font-size:12px;">When exam closes</small>
+        </div>
+      </div>
+      <div class="row">
+        <div class="form-group">
+          <label>Duration (minutes) *</label>
+          <input type="number" id="exam-duration" placeholder="60" value="60" min="10" max="300">
+          <small style="color:var(--muted);font-size:12px;">Time limit per student</small>
+        </div>
+        <div class="form-group">
+          <label>Difficulty Level</label>
+          <select id="exam-difficulty">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeExamModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="goToExamStep(2)">Next: Choose Source <i class="fas fa-arrow-right" style="margin-left:8px;"></i></button>
+      </div>
+    </div>
+
+    <!-- Step 2: Content Source -->
+    <div id="exam-step-2" class="exam-step-content" style="display:none;">
+      <h3 style="text-align:center;margin-bottom:30px;color:var(--text);">How would you like to create your exam?</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div class="source-card" onclick="selectExamSource('manual')" id="source-manual">
+          <div style="font-size:48px;margin-bottom:15px;">✏️</div>
+          <h4>Start from Scratch</h4>
+          <p style="color:var(--muted);font-size:14px;">Manually create MCQ and coding questions with test cases</p>
+        </div>
+        <div class="source-card" onclick="selectExamSource('ai')" id="source-ai">
+          <div style="font-size:48px;margin-bottom:15px;">🤖</div>
+          <h4>AI Generate Exam</h4>
+          <p style="color:var(--muted);font-size:14px;">Use Mistral AI to automatically generate questions</p>
+        </div>
+      </div>
+      
+      <!-- AI Generation Options (hidden by default) -->
+      <div id="ai-options" style="display:none;margin-top:30px;padding:20px;background:#f0f9ff;border-radius:12px;">
+        <h4 style="color:#0369a1;margin-bottom:20px;"><i class="fas fa-magic" style="margin-right:8px;"></i>AI Generation Settings</h4>
+        <div class="row">
+          <div class="form-group">
+            <label>Number of MCQ Questions</label>
+            <input type="number" id="ai-num-mcq" value="5" min="0" max="20">
+          </div>
+          <div class="form-group">
+            <label>Number of Coding Questions</label>
+            <input type="number" id="ai-num-coding" value="2" min="0" max="10">
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group">
+            <label>Difficulty Level</label>
+            <select id="ai-difficulty">
+              <option value="easy">Easy</option>
+              <option value="medium" selected>Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Programming Language</label>
+            <select id="ai-language">
+              <option value="python">Python</option>
+              <option value="javascript">JavaScript</option>
+              <option value="java">Java</option>
+              <option value="c++">C++</option>
+              <option value="c">C</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group">
+            <label>Marks per MCQ</label>
+            <input type="number" id="ai-mcq-marks" value="2" min="1" max="10">
+          </div>
+          <div class="form-group">
+            <label>Marks per Coding</label>
+            <input type="number" id="ai-coding-marks" value="10" min="1" max="50">
+          </div>
+        </div>
+        <button type="button" class="btn btn-primary" onclick="generateAIQuestions()" style="width:100%;margin-top:10px;" id="generate-ai-btn">
+          <i class="fas fa-magic" style="margin-right:8px;"></i>Generate Questions
+        </button>
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="goToExamStep(1)"><i class="fas fa-arrow-left" style="margin-right:8px;"></i>Back</button>
+        <button type="button" class="btn btn-primary" onclick="goToExamStep(3)" id="step2-next-btn" disabled>Next: Edit Questions <i class="fas fa-arrow-right" style="margin-left:8px;"></i></button>
+      </div>
+    </div>
+
+    <!-- Step 3: Questions Editor -->
+    <div id="exam-step-3" class="exam-step-content" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <div>
+          <h3 style="margin:0;color:var(--text);">Questions</h3>
+          <p style="color:var(--muted);font-size:14px;margin:4px 0 0;">Total: <span id="total-questions-count">0</span> questions (<span id="total-marks-count">0</span> marks)</p>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button type="button" class="btn btn-outline" onclick="addQuestion('mcq')"><i class="fas fa-plus" style="margin-right:8px;"></i>Add MCQ</button>
+          <button type="button" class="btn btn-outline" onclick="addQuestion('coding')"><i class="fas fa-code" style="margin-right:8px;"></i>Add Coding</button>
+        </div>
+      </div>
+      
+      <div id="questions-container" style="max-height:400px;overflow-y:auto;"></div>
+      
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="goToExamStep(2)"><i class="fas fa-arrow-left" style="margin-right:8px;"></i>Back</button>
+        <button type="button" class="btn btn-primary" onclick="goToExamStep(4)">Next: Settings <i class="fas fa-arrow-right" style="margin-left:8px;"></i></button>
+      </div>
+    </div>
+
+    <!-- Step 4: Settings & Publish -->
+    <div id="exam-step-4" class="exam-step-content" style="display:none;">
+      <h3 style="margin-bottom:20px;color:var(--text);">Exam Settings</h3>
+      
+      <div class="row">
+        <div class="form-group">
+          <label>Total Marks</label>
+          <input type="number" id="exam-total-marks" value="100" min="1">
+        </div>
+        <div class="form-group">
+          <label>Passing Marks</label>
+          <input type="number" id="exam-passing-marks" value="40" min="1">
+        </div>
+      </div>
+      
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin:20px 0;">
+        <label style="display:flex;align-items:center;gap:10px;padding:15px;background:#f8fafc;border-radius:10px;cursor:pointer;">
+          <input type="checkbox" id="exam-proctored" checked style="width:18px;height:18px;">
+          <div>
+            <strong>Enable Proctoring</strong>
+            <p style="color:var(--muted);font-size:12px;margin:2px 0 0;">Monitor students via webcam</p>
+          </div>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:15px;background:#f8fafc;border-radius:10px;cursor:pointer;">
+          <input type="checkbox" id="exam-shuffle" style="width:18px;height:18px;">
+          <div>
+            <strong>Shuffle Questions</strong>
+            <p style="color:var(--muted);font-size:12px;margin:2px 0 0;">Randomize question order</p>
+          </div>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:15px;background:#f8fafc;border-radius:10px;cursor:pointer;">
+          <input type="checkbox" id="exam-show-results" checked style="width:18px;height:18px;">
+          <div>
+            <strong>Show Results</strong>
+            <p style="color:var(--muted);font-size:12px;margin:2px 0 0;">Display score after submission</p>
+          </div>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:15px;background:#f8fafc;border-radius:10px;cursor:pointer;">
+          <input type="checkbox" id="exam-publish" style="width:18px;height:18px;">
+          <div>
+            <strong>Publish Now</strong>
+            <p style="color:var(--muted);font-size:12px;margin:2px 0 0;">Make exam visible to students</p>
+          </div>
+        </label>
+      </div>
+      
+      <div class="form-group">
+        <label>Assign Students</label>
+        <div style="max-height:150px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:10px;padding:10px;">
+          {% for student in students %}
+          <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;">
+            <input type="checkbox" name="exam-students" value="{{ student.id }}" style="width:16px;height:16px;">
+            <span>{{ student.full_name }}</span>
+            <small style="color:var(--muted);">({{ student.roll_number }})</small>
+          </label>
+          {% empty %}
+          <p style="color:var(--muted);text-align:center;padding:10px;">No students registered yet</p>
+          {% endfor %}
+        </div>
+      </div>
+      
+      <!-- Exam Summary -->
+      <div style="background:linear-gradient(135deg,#667eea,#764ba2);border-radius:12px;padding:20px;color:#fff;margin-top:20px;">
+        <h4 style="margin:0 0 15px;opacity:0.9;">📋 Exam Summary</h4>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;text-align:center;">
+          <div>
+            <div style="font-size:24px;font-weight:bold;" id="summary-questions">0</div>
+            <div style="font-size:12px;opacity:0.8;">Questions</div>
+          </div>
+          <div>
+            <div style="font-size:24px;font-weight:bold;" id="summary-marks">0</div>
+            <div style="font-size:12px;opacity:0.8;">Total Marks</div>
+          </div>
+          <div>
+            <div style="font-size:24px;font-weight:bold;" id="summary-duration">60</div>
+            <div style="font-size:12px;opacity:0.8;">Minutes</div>
+          </div>
+          <div>
+            <div style="font-size:24px;font-weight:bold;" id="summary-students">0</div>
+            <div style="font-size:12px;opacity:0.8;">Students</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="goToExamStep(3)"><i class="fas fa-arrow-left" style="margin-right:8px;"></i>Back</button>
+        <button type="button" class="btn btn-primary" onclick="saveExam()" style="background:#10b981;">
+          <i class="fas fa-check" style="margin-right:8px;"></i>Create Exam
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+/* Exam Modal Styles */
+.exam-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+.exam-step.active {
+  color: var(--primary);
+}
+.exam-step.active .step-circle {
+  background: var(--primary);
+  color: white;
+}
+.exam-step.completed .step-circle {
+  background: #10b981;
+  color: white;
+}
+.step-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  background: #e5e7eb;
+  color: #6b7280;
+}
+.step-line {
+  width: 60px;
+  height: 2px;
+  background: #e5e7eb;
+  margin: 18px 10px;
+}
+.source-card {
+  padding: 30px;
+  border: 2px solid #e5e7eb;
+  border-radius: 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.source-card:hover {
+  border-color: var(--primary);
+  background: #f8fafc;
+}
+.source-card.selected {
+  border-color: var(--primary);
+  background: #eff6ff;
+}
+.source-card h4 {
+  margin: 0 0 8px;
+  color: var(--text);
+}
+
+/* Question Card Styles */
+.question-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 15px;
+}
+.question-card.mcq {
+  border-left: 4px solid #3b82f6;
+}
+.question-card.coding {
+  border-left: 4px solid #8b5cf6;
+}
+.question-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+.question-type-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.question-type-badge.mcq {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+.question-type-badge.coding {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+.test-case-item {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  background: #f8fafc;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+.test-case-item input {
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 13px;
+}
+</style>
+
+<script>
+// View switching
+function showView(viewName) {
+  // Hide all views
+  document.querySelectorAll('.main').forEach(v => v.classList.add('view-hidden'));
+  // Show selected view
+  const view = document.getElementById(viewName + '-view');
+  if (view) view.classList.remove('view-hidden');
+  // Update sidebar active state
+  document.querySelectorAll('.menu a').forEach(a => a.classList.remove('active'));
+  document.querySelector(`.menu a[onclick="showView('${viewName}')"]`)?.classList.add('active');
+
+  // Lazy-load analytics when the view is opened
+  if (viewName === 'analytics') {
+    loadAnalytics();
+  }
+}
+
+// Modal functions
+function openCourseModal() {
+  document.getElementById('course-modal').classList.add('active');
+  updateModulesPreview();
+}
+
+function closeCourseModal() {
+  document.getElementById('course-modal').classList.remove('active');
+  document.getElementById('course-form').reset();
+  document.getElementById('modules-preview').style.display = 'none';
+}
+
+// Close modal on overlay click
+document.getElementById('course-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeCourseModal();
+});
+
+// Update modules preview when study hours change
+document.getElementById('course-study-hours').addEventListener('input', updateModulesPreview);
+
+function updateModulesPreview() {
+  const hours = parseFloat(document.getElementById('course-study-hours').value) || 0;
+  const preview = document.getElementById('modules-preview');
+  const countSpan = document.getElementById('modules-count');
+  
+  if (hours > 0) {
+    const modulesCount = Math.max(1, Math.ceil(hours * 2)); // ~30 min per module
+    countSpan.textContent = modulesCount;
+    preview.style.display = 'block';
+  } else {
+    preview.style.display = 'none';
+  }
+}
+
+// Save course
+async function saveCourse(e) {
+  e.preventDefault();
+  const form = document.getElementById('course-form');
+  const formData = new FormData(form);
+  
+  // Get selected students
+  const selectedStudents = [];
+  form.querySelectorAll('input[name="students"]:checked').forEach(cb => {
+    selectedStudents.push(parseInt(cb.value));
+  });
+  
+  // Validate YouTube URL
+  const videoUrl = formData.get('video_url');
+  if (!videoUrl || (!videoUrl.includes('youtube.com') && !videoUrl.includes('youtu.be'))) {
+    alert('Please enter a valid YouTube URL');
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/courses/create/', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
+      },
+      body: JSON.stringify({
+        title: formData.get('title'),
+        description: formData.get('description'),
+        video_url: formData.get('video_url'),
+        study_hours: parseFloat(formData.get('study_hours')) || 4,
+        category: formData.get('category'),
+        level: formData.get('level'),
+        duration: formData.get('duration'),
+        is_published: formData.get('is_published') === 'true',
+        student_ids: selectedStudents
+      })
+    });
+    
+    if (response.ok) {
+      closeCourseModal();
+      window.location.reload();
+    } else {
+      const data = await response.json();
+      alert(data.error || 'Failed to create course');
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Failed to create course. Please try again.');
+  }
+}
+
+// Get CSRF token
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  if (!cookieValue) {
+    const hiddenToken = document.getElementById('csrf-token');
+    if (hiddenToken && hiddenToken.value) {
+      return hiddenToken.value;
+    }
+  }
+  return cookieValue;
+}
+
+// Change Password
+async function changePassword(e) {
+  e.preventDefault();
+  
+  const currentPassword = document.getElementById('current-password').value;
+  const newPassword = document.getElementById('new-password').value;
+  const confirmPassword = document.getElementById('confirm-password').value;
+  
+  if (newPassword !== confirmPassword) {
+    alert('New password and confirm password do not match!');
+    return;
+  }
+  
+  if (newPassword.length < 8) {
+    alert('Password must be at least 8 characters long!');
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/change-password/', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
+      },
+      body: JSON.stringify({
+        current_password: currentPassword,
+        new_password: newPassword
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      alert('Password changed successfully!');
+      document.getElementById('password-form').reset();
+    } else {
+      alert('Error: ' + (data.error || 'Failed to change password'));
+    }
+  } catch (error) {
+    console.error('Error changing password:', error);
+    alert('Failed to change password. Please try again.');
+  }
+}
+
+// Edit course
+function editCourse(courseId) {
+  // TODO: Implement edit functionality
+  alert('Edit course ' + courseId);
+}
+
+// View enrollments
+function viewEnrollments(courseId) {
+  // TODO: Implement view enrollments
+  alert('View enrollments for course ' + courseId);
+}
+
+// Filter students by search input
+function filterStudents() {
+  const searchInput = document.getElementById('student-search').value.toLowerCase();
+  const table = document.getElementById('students-table');
+  const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+  
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const cells = row.getElementsByTagName('td');
+    let found = false;
+    
+    for (let j = 0; j < cells.length; j++) {
+      const cellText = cells[j].textContent.toLowerCase();
+      if (cellText.includes(searchInput)) {
+        found = true;
+        break;
+      }
+    }
+    
+    row.style.display = found ? '' : 'none';
+  }
+}
+
+// View student details
+function viewStudentDetails(studentId) {
+  alert('View details for student ID: ' + studentId + '\nStudent detail modal coming soon!');
+}
+
+// ==================== EXAM MODAL FUNCTIONS ====================
+let examQuestions = [];
+let examCurrentStep = 1;
+let examSource = null;
+
+function openExamModal() {
+  document.getElementById('exam-modal').classList.add('active');
+  examQuestions = [];
+  examCurrentStep = 1;
+  examSource = null;
+  resetExamForm();
+  updateExamStepUI();
+}
+
+function closeExamModal() {
+  document.getElementById('exam-modal').classList.remove('active');
+  resetExamForm();
+}
+
+function resetExamForm() {
+  document.getElementById('exam-title').value = '';
+  document.getElementById('exam-description').value = '';
+  document.getElementById('exam-course').value = '';
+  document.getElementById('exam-topic').value = '';
+  document.getElementById('exam-duration').value = '60';
+  document.getElementById('exam-scheduled-date').value = '';
+  document.getElementById('questions-container').innerHTML = '';
+  document.querySelectorAll('.source-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('ai-options').style.display = 'none';
+  document.getElementById('step2-next-btn').disabled = true;
+  examQuestions = [];
+  updateQuestionCounts();
+}
+
+// Close exam modal on overlay click
+document.getElementById('exam-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeExamModal();
+});
+
+function goToExamStep(step) {
+  // Validation
+  if (step === 2 && examCurrentStep === 1) {
+    if (!document.getElementById('exam-title').value.trim()) {
+      alert('Please enter an exam title');
+      return;
+    }
+  }
+  if (step === 3 && examQuestions.length === 0) {
+    alert('Please add at least one question');
+    return;
+  }
+  
+  examCurrentStep = step;
+  updateExamStepUI();
+  
+  // Update summary when going to step 4
+  if (step === 4) {
+    updateExamSummary();
+  }
+}
+
+function updateExamStepUI() {
+  // Hide all steps
+  document.querySelectorAll('.exam-step-content').forEach(el => el.style.display = 'none');
+  // Show current step
+  document.getElementById('exam-step-' + examCurrentStep).style.display = 'block';
+  
+  // Update step indicators
+  document.querySelectorAll('.exam-step').forEach((el, idx) => {
+    el.classList.remove('active', 'completed');
+    if (idx + 1 === examCurrentStep) {
+      el.classList.add('active');
+    } else if (idx + 1 < examCurrentStep) {
+      el.classList.add('completed');
+    }
+  });
+}
+
+function selectExamSource(source) {
+  examSource = source;
+  document.querySelectorAll('.source-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('source-' + source).classList.add('selected');
+  
+  if (source === 'ai') {
+    document.getElementById('ai-options').style.display = 'block';
+    // Auto-fill topic from step 1
+    const topic = document.getElementById('exam-topic').value;
+    if (topic) {
+      // Topic already set
+    }
+  } else {
+    document.getElementById('ai-options').style.display = 'none';
+    document.getElementById('step2-next-btn').disabled = false;
+  }
+}
+
+async function generateAIQuestions() {
+  const topic = document.getElementById('exam-topic').value || document.getElementById('exam-title').value;
+  const numMcq = parseInt(document.getElementById('ai-num-mcq').value) || 0;
+  const numCoding = parseInt(document.getElementById('ai-num-coding').value) || 0;
+  const difficulty = document.getElementById('ai-difficulty').value;
+  const language = document.getElementById('ai-language').value;
+  const mcqMarks = parseInt(document.getElementById('ai-mcq-marks').value) || 2;
+  const codingMarks = parseInt(document.getElementById('ai-coding-marks').value) || 10;
+  
+  if (numMcq === 0 && numCoding === 0) {
+    alert('Please specify at least one question to generate');
+    return;
+  }
+  
+  const btn = document.getElementById('generate-ai-btn');
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:8px;"></i>Generating...';
+  btn.disabled = true;
+  
+  try {
+    const response = await fetch('/api/exams/generate-ai/', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
+      },
+      body: JSON.stringify({
+        topic: topic,
+        num_mcq: numMcq,
+        num_coding: numCoding,
+        difficulty: difficulty,
+        programming_language: language,
+        marks_per_mcq: mcqMarks,
+        marks_per_coding: codingMarks
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.status === 'success' && data.questions) {
+      examQuestions = data.questions;
+      renderQuestions();
+      document.getElementById('step2-next-btn').disabled = false;
+      alert(`Successfully generated ${data.total_generated} questions!`);
+    } else {
+      alert('Failed to generate questions: ' + (data.error || 'Unknown error'));
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Failed to generate questions. Please try again.');
+  } finally {
+    btn.innerHTML = '<i class="fas fa-magic" style="margin-right:8px;"></i>Generate Questions';
+    btn.disabled = false;
+  }
+}
+
+function addQuestion(type) {
+  const question = {
+    question_type: type,
+    question_text: '',
+    marks: type === 'mcq' ? 2 : 10,
+    option_a: '',
+    option_b: '',
+    option_c: '',
+    option_d: '',
+    correct_option: 'A',
+    programming_language: 'python',
+    starter_code: '',
+    solution_code: '',
+    test_cases: type === 'coding' ? [
+      { input: '', output: '', is_sample: true },
+      { input: '', output: '', is_sample: false },
+      { input: '', output: '', is_sample: false }
+    ] : []
+  };
+  
+  examQuestions.push(question);
+  renderQuestions();
+  
+  // Scroll to new question
+  const container = document.getElementById('questions-container');
+  container.scrollTop = container.scrollHeight;
+}
+
+function removeQuestion(index) {
+  examQuestions.splice(index, 1);
+  renderQuestions();
+}
+
+function renderQuestions() {
+  const container = document.getElementById('questions-container');
+  container.innerHTML = '';
+  
+  examQuestions.forEach((q, idx) => {
+    const card = document.createElement('div');
+    card.className = `question-card ${q.question_type}`;
+    
+    if (q.question_type === 'mcq') {
+      card.innerHTML = `
+        <div class="question-header">
+          <span class="question-type-badge mcq">MCQ</span>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <input type="number" value="${q.marks}" min="1" max="20" style="width:60px;padding:6px;border:1px solid #e5e7eb;border-radius:6px;" onchange="updateQuestionMarks(${idx}, this.value)"> marks
+            <button onclick="removeQuestion(${idx})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px;"><i class="fas fa-trash"></i></button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Question ${idx + 1}</label>
+          <textarea placeholder="Enter your question..." onchange="updateQuestion(${idx}, 'question_text', this.value)">${q.question_text}</textarea>
+        </div>
+        <div class="row">
+          <div class="form-group">
+            <label>Option A</label>
+            <input type="text" value="${q.option_a || ''}" placeholder="Option A" onchange="updateQuestion(${idx}, 'option_a', this.value)">
+          </div>
+          <div class="form-group">
+            <label>Option B</label>
+            <input type="text" value="${q.option_b || ''}" placeholder="Option B" onchange="updateQuestion(${idx}, 'option_b', this.value)">
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group">
+            <label>Option C</label>
+            <input type="text" value="${q.option_c || ''}" placeholder="Option C" onchange="updateQuestion(${idx}, 'option_c', this.value)">
+          </div>
+          <div class="form-group">
+            <label>Option D</label>
+            <input type="text" value="${q.option_d || ''}" placeholder="Option D" onchange="updateQuestion(${idx}, 'option_d', this.value)">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Correct Answer</label>
+          <select onchange="updateQuestion(${idx}, 'correct_option', this.value)">
+            <option value="A" ${q.correct_option === 'A' ? 'selected' : ''}>Option A</option>
+            <option value="B" ${q.correct_option === 'B' ? 'selected' : ''}>Option B</option>
+            <option value="C" ${q.correct_option === 'C' ? 'selected' : ''}>Option C</option>
+            <option value="D" ${q.correct_option === 'D' ? 'selected' : ''}>Option D</option>
+          </select>
+        </div>
+      `;
+    } else {
+      // Coding question
+      const testCasesHtml = (q.test_cases || []).map((tc, tcIdx) => `
+        <div class="test-case-item">
+          <input type="text" value="${tc.input || ''}" placeholder="Input" onchange="updateTestCase(${idx}, ${tcIdx}, 'input', this.value)">
+          <input type="text" value="${tc.output || ''}" placeholder="Expected Output" onchange="updateTestCase(${idx}, ${tcIdx}, 'output', this.value)">
+          <label style="display:flex;align-items:center;gap:5px;font-size:12px;">
+            <input type="checkbox" ${tc.is_sample ? 'checked' : ''} onchange="updateTestCase(${idx}, ${tcIdx}, 'is_sample', this.checked)"> Sample
+          </label>
+          <button onclick="removeTestCase(${idx}, ${tcIdx})" style="background:none;border:none;color:#ef4444;cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+      `).join('');
+      
+      card.innerHTML = `
+        <div class="question-header">
+          <span class="question-type-badge coding">Coding</span>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <input type="number" value="${q.marks}" min="1" max="50" style="width:60px;padding:6px;border:1px solid #e5e7eb;border-radius:6px;" onchange="updateQuestionMarks(${idx}, this.value)"> marks
+            <button onclick="removeQuestion(${idx})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px;"><i class="fas fa-trash"></i></button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Problem Statement ${idx + 1}</label>
+          <textarea placeholder="Describe the coding problem..." style="min-height:100px;" onchange="updateQuestion(${idx}, 'question_text', this.value)">${q.question_text}</textarea>
+        </div>
+        <div class="row">
+          <div class="form-group">
+            <label>Programming Language</label>
+            <select onchange="updateQuestion(${idx}, 'programming_language', this.value)">
+              <option value="python" ${q.programming_language === 'python' ? 'selected' : ''}>Python</option>
+              <option value="javascript" ${q.programming_language === 'javascript' ? 'selected' : ''}>JavaScript</option>
+              <option value="java" ${q.programming_language === 'java' ? 'selected' : ''}>Java</option>
+              <option value="c++" ${q.programming_language === 'c++' ? 'selected' : ''}>C++</option>
+              <option value="c" ${q.programming_language === 'c' ? 'selected' : ''}>C</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Starter Code (Template for students)</label>
+          <textarea placeholder="def solve(n):\n    # Write your code here\n    pass" style="font-family:monospace;font-size:13px;min-height:80px;" onchange="updateQuestion(${idx}, 'starter_code', this.value)">${q.starter_code || ''}</textarea>
+        </div>
+        <div class="form-group">
+          <label>Solution Code (Reference - not shown to students)</label>
+          <textarea placeholder="def solve(n):\n    return n * 2" style="font-family:monospace;font-size:13px;min-height:80px;" onchange="updateQuestion(${idx}, 'solution_code', this.value)">${q.solution_code || ''}</textarea>
+        </div>
+        <div class="form-group">
+          <label>Test Cases <button onclick="addTestCase(${idx})" style="background:var(--primary);color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer;margin-left:10px;"><i class="fas fa-plus"></i> Add</button></label>
+          <div id="test-cases-${idx}">
+            ${testCasesHtml || '<p style="color:var(--muted);font-size:14px;">No test cases added yet</p>'}
+          </div>
+        </div>
+      `;
+    }
+    
+    container.appendChild(card);
+  });
+  
+  updateQuestionCounts();
+}
+
+function updateQuestion(idx, field, value) {
+  if (examQuestions[idx]) {
+    examQuestions[idx][field] = value;
+  }
+}
+
+function updateQuestionMarks(idx, value) {
+  if (examQuestions[idx]) {
+    examQuestions[idx].marks = parseInt(value) || 1;
+    updateQuestionCounts();
+  }
+}
+
+function addTestCase(questionIdx) {
+  if (!examQuestions[questionIdx].test_cases) {
+    examQuestions[questionIdx].test_cases = [];
+  }
+  examQuestions[questionIdx].test_cases.push({ input: '', output: '', is_sample: false });
+  renderQuestions();
+}
+
+function removeTestCase(questionIdx, testCaseIdx) {
+  examQuestions[questionIdx].test_cases.splice(testCaseIdx, 1);
+  renderQuestions();
+}
+
+function updateTestCase(questionIdx, testCaseIdx, field, value) {
+  if (examQuestions[questionIdx] && examQuestions[questionIdx].test_cases[testCaseIdx]) {
+    examQuestions[questionIdx].test_cases[testCaseIdx][field] = value;
+  }
+}
+
+function updateQuestionCounts() {
+  const totalQuestions = examQuestions.length;
+  const totalMarks = examQuestions.reduce((sum, q) => sum + (parseInt(q.marks) || 0), 0);
+  
+  document.getElementById('total-questions-count').textContent = totalQuestions;
+  document.getElementById('total-marks-count').textContent = totalMarks;
+  
+  // Auto-update total marks input
+  document.getElementById('exam-total-marks').value = totalMarks || 100;
+}
+
+function updateExamSummary() {
+  const totalQuestions = examQuestions.length;
+  const totalMarks = examQuestions.reduce((sum, q) => sum + (parseInt(q.marks) || 0), 0);
+  const duration = document.getElementById('exam-duration').value || 60;
+  const selectedStudents = document.querySelectorAll('input[name="exam-students"]:checked').length;
+  
+  document.getElementById('summary-questions').textContent = totalQuestions;
+  document.getElementById('summary-marks').textContent = totalMarks;
+  document.getElementById('summary-duration').textContent = duration;
+  document.getElementById('summary-students').textContent = selectedStudents;
+}
+
+// Update student count when checkboxes change
+document.querySelectorAll('input[name="exam-students"]').forEach(cb => {
+  cb.addEventListener('change', updateExamSummary);
+});
+
+async function saveExam() {
+  // Validate
+  const title = document.getElementById('exam-title').value.trim();
+  if (!title) {
+    alert('Please enter an exam title');
+    goToExamStep(1);
+    return;
+  }
+  
+  const startDateInput = document.getElementById('exam-scheduled-date').value;
+  const endDateInput = document.getElementById('exam-end-date').value;
+  
+  if (!startDateInput || !endDateInput) {
+    alert('Please set both start and end dates for the exam');
+    goToExamStep(1);
+    return;
+  }
+  
+  // Convert datetime-local to ISO string with timezone
+  // datetime-local format: "2026-01-04T05:46"
+  // We need to convert to ISO format that Django can parse correctly
+  const startDate = new Date(startDateInput).toISOString();
+  const endDate = new Date(endDateInput).toISOString();
+  
+  console.log('📅 Start date (ISO):', startDate);
+  console.log('📅 End date (ISO):', endDate);
+  
+  // Validate end date is after start date
+  if (new Date(endDate) <= new Date(startDate)) {
+    alert('End date must be after start date');
+    goToExamStep(1);
+    return;
+  }
+  
+  if (examQuestions.length === 0) {
+    alert('Please add at least one question');
+    goToExamStep(3);
+    return;
+  }
+  
+  // Get selected students
+  const selectedStudents = [];
+  document.querySelectorAll('input[name="exam-students"]:checked').forEach(cb => {
+    selectedStudents.push(parseInt(cb.value));
+  });
+  
+  const examData = {
+    title: title,
+    description: document.getElementById('exam-description').value,
+    course_id: document.getElementById('exam-course').value || null,
+    topic: document.getElementById('exam-topic').value,
+    difficulty: document.getElementById('exam-difficulty')?.value || document.getElementById('ai-difficulty')?.value || 'medium',
+    total_marks: parseInt(document.getElementById('exam-total-marks').value) || 100,
+    passing_marks: parseInt(document.getElementById('exam-passing-marks').value) || 40,
+    duration_minutes: parseInt(document.getElementById('exam-duration').value) || 60,
+    scheduled_date: startDate,
+    end_date: endDate,
+    is_published: document.getElementById('exam-publish').checked,
+    is_proctored: document.getElementById('exam-proctored').checked,
+    shuffle_questions: document.getElementById('exam-shuffle').checked,
+    show_results: document.getElementById('exam-show-results').checked,
+    questions: examQuestions,
+    student_ids: selectedStudents
+  };
+  
+  try {
+    const response = await fetch('/api/exams/create/', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
+      },
+      body: JSON.stringify(examData)
+    });
+    
+    const data = await response.json();
+    
+    if (data.status === 'success') {
+      alert('Exam created successfully!');
+      closeExamModal();
+      loadExams(); // Refresh exams list
+    } else {
+      alert('Failed to create exam: ' + (data.error || 'Unknown error'));
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Failed to create exam. Please try again.');
+  }
+}
+
+// Load exams list
+async function loadExams() {
+  try {
+    const response = await fetch('/api/exams/', {
+      credentials: 'same-origin',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken')
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (data.exams && data.exams.length > 0) {
+      document.getElementById('exams-empty-state').style.display = 'none';
+      document.getElementById('exams-grid').style.display = 'grid';
+      
+      const grid = document.getElementById('exams-grid');
+      grid.innerHTML = data.exams.map(exam => `
+        <div class="card" style="padding:0;overflow:hidden;">
+          <div style="background:linear-gradient(135deg,${exam.difficulty === 'easy' ? '#10b981,#34d399' : exam.difficulty === 'hard' ? '#ef4444,#f87171' : '#f59e0b,#fbbf24'});padding:20px;color:#fff;">
+            <h3 style="margin:0;font-size:18px;">${exam.title}</h3>
+            <p style="margin:8px 0 0;font-size:13px;opacity:0.9;">${exam.topic || 'General'}</p>
+          </div>
+          <div style="padding:20px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:15px;">
+              <span style="color:var(--muted);font-size:14px;"><i class="fas fa-question-circle" style="margin-right:5px;"></i>${exam.total_questions} Questions</span>
+              <span style="color:var(--muted);font-size:14px;"><i class="fas fa-star" style="margin-right:5px;"></i>${exam.total_marks} Marks</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:15px;">
+              <span style="color:var(--muted);font-size:14px;"><i class="fas fa-clock" style="margin-right:5px;"></i>${exam.duration_minutes} min</span>
+              <span style="color:var(--muted);font-size:14px;"><i class="fas fa-users" style="margin-right:5px;"></i>${exam.students_assigned} Students</span>
+            </div>
+            <div style="display:flex;gap:8px;margin-bottom:15px;">
+              ${exam.mcq_count > 0 ? `<span style="background:#dbeafe;color:#1d4ed8;padding:4px 8px;border-radius:12px;font-size:11px;">${exam.mcq_count} MCQ</span>` : ''}
+              ${exam.coding_count > 0 ? `<span style="background:#ede9fe;color:#6d28d9;padding:4px 8px;border-radius:12px;font-size:11px;">${exam.coding_count} Coding</span>` : ''}
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:12px;padding:4px 10px;border-radius:12px;${exam.is_published ? 'background:#d1fae5;color:#059669;' : 'background:#fef3c7;color:#d97706;'}">${exam.is_published ? 'Published' : 'Draft'}</span>
+              <div style="display:flex;gap:8px;">
+                <button onclick="viewExamDetails(${exam.id})" style="background:none;border:1px solid #e5e7eb;padding:8px 12px;border-radius:8px;cursor:pointer;"><i class="fas fa-eye"></i></button>
+                <button onclick="editExam(${exam.id})" style="background:none;border:1px solid #e5e7eb;padding:8px 12px;border-radius:8px;cursor:pointer;"><i class="fas fa-edit"></i></button>
+                <button onclick="deleteExam(${exam.id}, '${exam.title}')" style="background:none;border:1px solid #ef4444;color:#ef4444;padding:8px 12px;border-radius:8px;cursor:pointer;"><i class="fas fa-trash"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      document.getElementById('exams-empty-state').style.display = 'block';
+      document.getElementById('exams-grid').style.display = 'none';
+    }
+  } catch (error) {
+    console.error('Error loading exams:', error);
+  }
+}
+
+// --------------------
+// Analytics
+// --------------------
+let analyticsLoaded = false;
+let chartInstances = {};
+
+function formatDuration(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}m ${secs}s`;
+}
+
+async function loadAnalytics(force = false) {
+  if (analyticsLoaded && !force) return;
+  try {
+    const response = await fetch('/api/analytics/', {
+      credentials: 'same-origin',
+      headers: { 'X-CSRFToken': getCookie('csrftoken') }
+    });
+
+    const data = await response.json();
+    if (!response.ok || data.error) {
+      console.error('Analytics error:', data.error || response.statusText);
+      return;
+    }
+
+    document.getElementById('analytics-avg-marks').textContent = `${(data.avg_marks_obtained || 0).toFixed(1)} marks`;
+    document.getElementById('analytics-concentration').textContent = `${(data.concentration_score || 0).toFixed(0)}%`;
+    document.getElementById('analytics-avg-time').textContent = formatDuration(data.avg_time_seconds || 0);
+    document.getElementById('analytics-completion').textContent = `${(data.completion_rate || 0).toFixed(1)}%`;
+
+    renderAnalyticsCharts(data);
+
+    analyticsLoaded = true;
+  } catch (error) {
+    console.error('Error loading analytics:', error);
+  }
+}
+
+function renderAnalyticsCharts(data) {
+  const destroyIfExists = (key) => {
+    if (chartInstances[key]) {
+      chartInstances[key].destroy();
+      delete chartInstances[key];
+    }
+  };
+
+  const scoreCtx = document.getElementById('chart-scores');
+  const focusCtx = document.getElementById('chart-focus');
+  const completionCtx = document.getElementById('chart-completion');
+
+  if (scoreCtx) {
+    destroyIfExists('scores');
+    chartInstances.scores = new Chart(scoreCtx, {
+      type: 'bar',
+      data: {
+        labels: ['Avg Marks', 'Avg %'],
+        datasets: [{
+          label: 'Performance',
+          data: [data.avg_marks_obtained || 0, data.avg_percentage || 0],
+          backgroundColor: ['#6366f1', '#10b981']
+        }]
+      },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } }
+      }
+    });
+  }
+
+  if (focusCtx) {
+    destroyIfExists('focus');
+    chartInstances.focus = new Chart(focusCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Concentration', 'Distraction'],
+        datasets: [{
+          data: [data.concentration_score || 0, Math.max(0, 100 - (data.concentration_score || 0))],
+          backgroundColor: ['#10b981', '#f59e0b']
+        }]
+      },
+      options: { plugins: { legend: { position: 'bottom' } } }
+    });
+  }
+
+  if (completionCtx) {
+    destroyIfExists('completion');
+    chartInstances.completion = new Chart(completionCtx, {
+      type: 'radar',
+      data: {
+        labels: ['Completion', 'Violations (low is good)', 'Tab Switches (low is good)'],
+        datasets: [{
+          label: 'Engagement Profile',
+          data: [
+            data.completion_rate || 0,
+            Math.max(0, 100 - (data.avg_violations * 10 || 0)),
+            Math.max(0, 100 - (data.avg_tab_switches * 5 || 0))
+          ],
+          backgroundColor: 'rgba(59,130,246,0.2)',
+          borderColor: '#3b82f6'
+        }]
+      },
+      options: {
+        scales: { r: { suggestedMin: 0, suggestedMax: 100 } },
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+  }
+}
+
+async function viewExamDetails(examId) {
+  // Fetch exam submissions for this exam
+  try {
+    console.log('📋 Fetching submissions for exam:', examId);
+    const response = await fetch(`/api/exams/${examId}/submissions/`, {
+      credentials: 'same-origin',
+      headers: { 'X-CSRFToken': getCookie('csrftoken') }
+    });
+    console.log('📡 Response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ API Error:', response.status, errorText);
+      alert(`Error: ${response.status} - ${response.statusText}\n\n${errorText}`);
+      return;
+    }
+    
+    const data = await response.json();
+    console.log('✅ Submissions data received:', data);
+    
+    // Create modal overlay
+    const modal = document.createElement('div');
+    modal.id = 'exam-details-modal';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      backdrop-filter: blur(4px);
+    `;
+    
+    // Count statuses
+    const attempting = data.submissions.filter(s => s.status === 'attempting').length;
+    const completed = data.submissions.filter(s => s.status === 'completed').length;
+    const blocked = data.submissions.filter(s => s.status === 'blocked').length;
+    const notStarted = data.total_assigned - data.submissions.length;
+    
+    modal.innerHTML = `
+      <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); width: 95%; max-width: 1400px; height: 90vh; border-radius: 20px; box-shadow: 0 25px 50px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow: hidden;">
+        <!-- Header -->
+        <div style="padding: 24px 32px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <h2 style="margin: 0; color: white; font-size: 1.5rem; font-weight: 700;">${data.exam_title || 'Exam Details'}</h2>
+              <span style="background: rgba(34, 197, 94, 0.2); color: #22c55e; padding: 4px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 600;">● LIVE</span>
+            </div>
+            <p style="margin: 0; color: #94a3b8; font-size: 0.9rem;">${data.course_name || 'Course'}</p>
+          </div>
+          <button onclick="document.getElementById('exam-details-modal').remove()" style="background: rgba(255,255,255,0.1); border: none; color: white; width: 36px; height: 36px; border-radius: 8px; cursor: pointer; font-size: 20px;">✕</button>
+        </div>
+        
+        <!-- Stats Cards -->
+        <div style="padding: 24px 32px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;">
+          <div style="background: rgba(51, 65, 85, 0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <div style="width: 40px; height: 40px; background: rgba(148, 163, 184, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-users" style="color: #94a3b8;"></i>
+              </div>
+            </div>
+            <div style="font-size: 1.75rem; font-weight: 800; color: white; margin-bottom: 4px;">${data.total_assigned || 0}</div>
+            <div style="font-size: 0.85rem; color: #94a3b8; font-weight: 600;">TOTAL ASSIGNED</div>
+          </div>
+          
+          <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <div style="width: 40px; height: 40px; background: rgba(16, 185, 129, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-file-alt" style="color: #10b981;"></i>
+              </div>
+            </div>
+            <div style="font-size: 1.75rem; font-weight: 800; color: #10b981; margin-bottom: 4px;">${attempting}</div>
+            <div style="font-size: 0.85rem; color: #6ee7b7; font-weight: 600;">ATTEMPTING</div>
+          </div>
+          
+          <div style="background: rgba(148, 163, 184, 0.1); border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 12px; padding: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <div style="width: 40px; height: 40px; background: rgba(148, 163, 184, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-clock" style="color: #94a3b8;"></i>
+              </div>
+            </div>
+            <div style="font-size: 1.75rem; font-weight: 800; color: #94a3b8; margin-bottom: 4px;">${notStarted}</div>
+            <div style="font-size: 0.85rem; color: #cbd5e1; font-weight: 600;">NOT STARTED</div>
+          </div>
+          
+          <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <div style="width: 40px; height: 40px; background: rgba(239, 68, 68, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
+              </div>
+            </div>
+            <div style="font-size: 1.75rem; font-weight: 800; color: #ef4444; margin-bottom: 4px;">${blocked}</div>
+            <div style="font-size: 0.85rem; color: #fca5a5; font-weight: 600;">BLOCKED</div>
+          </div>
+          
+          <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <div style="width: 40px; height: 40px; background: rgba(59, 130, 246, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-check-circle" style="color: #3b82f6;"></i>
+              </div>
+            </div>
+            <div style="font-size: 1.75rem; font-weight: 800; color: #3b82f6; margin-bottom: 4px;">${completed}</div>
+            <div style="font-size: 0.85rem; color: #93c5fd; font-weight: 600;">COMPLETED</div>
+          </div>
+        </div>
+        
+        <!-- Filter Tabs -->
+        <div style="padding: 0 32px 16px 32px; display: flex; gap: 12px;">
+          <button class="filter-tab active" data-filter="all" style="background: #667eea; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem;">ALL</button>
+          <button class="filter-tab" data-filter="attempting" style="background: rgba(255,255,255,0.05); color: #94a3b8; border: 1px solid rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem;">ATTEMPTING</button>
+          <button class="filter-tab" data-filter="blocked" style="background: rgba(255,255,255,0.05); color: #94a3b8; border: 1px solid rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem;">BLOCKED</button>
+          <button class="filter-tab" data-filter="completed" style="background: rgba(255,255,255,0.05); color: #94a3b8; border: 1px solid rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem;">COMPLETED</button>
+          <div style="flex: 1;"></div>
+          <button onclick="exportExamData(${examId})" style="background: rgba(255,255,255,0.05); color: white; border: 1px solid rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem; display: flex; align-items: center; gap: 8px;"><i class="fas fa-download"></i> Export Data</button>
+        </div>
+        
+        <!-- Student List -->
+        <div style="flex: 1; overflow-y: auto; padding: 0 32px 32px 32px;">
+          <div id="students-list"></div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Render student list
+    renderStudentList(data.submissions, 'all', examId);
+    
+    // Add filter functionality
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('.filter-tab').forEach(t => {
+          t.style.background = 'rgba(255,255,255,0.05)';
+          t.style.color = '#94a3b8';
+          t.classList.remove('active');
+        });
+        this.style.background = '#667eea';
+        this.style.color = 'white';
+        this.classList.add('active');
+        renderStudentList(data.submissions, this.getAttribute('data-filter'), examId);
+      });
+    });
+    
+  } catch (error) {
+    console.error('❌ Error loading exam details:', error);
+    console.error('Error stack:', error.stack);
+    alert('Error loading exam details: ' + error.message + '\n\nCheck browser console for details.');
+  }
+}
+
+function renderStudentList(submissions, filter, examId) {
+  const container = document.getElementById('students-list');
+  const filtered = filter === 'all' ? submissions : submissions.filter(s => s.status === filter);
+  
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 60px; color: #64748b;">
+        <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 16px; opacity: 0.5;"></i>
+        <p style="font-size: 1.1rem; margin: 0;">No submissions found</p>
+      </div>
+    `;
+    return;
+  }
+  
+  container.innerHTML = filtered.map(student => {
+    const statusColors = {
+      attempting: { bg: 'rgba(16, 185, 129, 0.1)', border: '#10b981', text: '#10b981', icon: 'file-alt' },
+      blocked: { bg: 'rgba(239, 68, 68, 0.1)', border: '#ef4444', text: '#ef4444', icon: 'ban' },
+      completed: { bg: 'rgba(59, 130, 246, 0.1)', border: '#3b82f6', text: '#3b82f6', icon: 'check-circle' },
+      not_started: { bg: 'rgba(107, 114, 128, 0.1)', border: '#6b7280', text: '#6b7280', icon: 'clock' }
+    };
+    
+    const status = statusColors[student.status] || statusColors.attempting;
+    const initials = (student.student_name || 'Unknown').split(' ').map(n => n[0]).join('').toUpperCase();
+    const progress = student.progress || 0;
+    const timeFormatted = student.time_taken ? formatTime(student.time_taken) : '--';
+    const scorePercentage = student.percentage !== null ? Math.round(student.percentage) : 0;
+    const scoreColor = scorePercentage >= 70 ? '#10b981' : scorePercentage >= 40 ? '#f59e0b' : '#ef4444';
+    
+    // Determine result/progress display based on status
+    let resultDisplay = '';
+    if (student.status === 'completed') {
+      resultDisplay = `
+        <div style="text-align: center;">
+          <div style="font-size: 1.8rem; font-weight: 800; color: ${scoreColor}; margin-bottom: 4px;">${scorePercentage}%</div>
+          <div style="font-size: 0.75rem; color: #94a3b8;">${student.total_marks_obtained}/${student.score || 'N/A'} marks</div>
+          <div style="font-size: 0.75rem; color: #64748b; margin-top: 4px;">${student.passed ? '✅ Passed' : '❌ Failed'}</div>
+        </div>
+      `;
+    } else if (student.status === 'attempting') {
+      resultDisplay = `
+        <div style="text-align: center;">
+          <div style="font-size: 1.2rem; font-weight: 700; color: #10b981; margin-bottom: 4px;">In Progress</div>
+          <div style="font-size: 0.75rem; color: #94a3b8;">⏱️ ${timeFormatted}</div>
+        </div>
+      `;
+    } else if (student.status === 'blocked') {
+      resultDisplay = `
+        <div style="text-align: center;">
+          <div style="font-size: 1.2rem; font-weight: 700; color: #ef4444; margin-bottom: 4px;">Blocked</div>
+          <div style="font-size: 0.75rem; color: #fca5a5;">⚠️ ${student.violation_count} violation${student.violation_count !== 1 ? 's' : ''}</div>
+        </div>
+      `;
+    } else {
+      resultDisplay = `
+        <div style="text-align: center;">
+          <div style="font-size: 1.2rem; font-weight: 700; color: #6b7280; margin-bottom: 4px;">Not Started</div>
+          <div style="font-size: 0.75rem; color: #94a3b8;">Awaiting attempt</div>
+        </div>
+      `;
+    }
+    
+    return `
+      <div style="background: rgba(51, 65, 85, 0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; margin-bottom: 12px; display: grid; grid-template-columns: 50px 200px 150px 150px 1fr 120px; gap: 20px; align-items: center;">
+        <!-- Avatar -->
+        <div style="width: 50px; height: 50px; background: ${status.bg}; border: 2px solid ${status.border}; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 700; color: ${status.text}; font-size: 1.1rem;">
+          ${initials}
+        </div>
+        
+        <!-- Student Info -->
+        <div>
+          <div style="color: white; font-weight: 600; font-size: 1rem; margin-bottom: 4px;">${student.student_name || 'Unknown Student'}</div>
+          <div style="color: #94a3b8; font-size: 0.85rem;">${student.roll_number || 'No ID'}</div>
+        </div>
+        
+        <!-- Status -->
+        <div>
+          <div style="display: inline-flex; align-items: center; gap: 8px; background: ${status.bg}; border: 1px solid ${status.border}; color: ${status.text}; padding: 6px 14px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;">
+            <i class="fas fa-${status.icon}"></i> ${student.status.charAt(0).toUpperCase() + student.status.slice(1).replace('_', ' ')}
+          </div>
+        </div>
+        
+        <!-- Result/Score -->
+        <div>
+          ${resultDisplay}
+        </div>
+        
+        <!-- Progress Bar -->
+        <div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="color: #94a3b8; font-size: 0.8rem;">Progress</span>
+            <span style="color: white; font-size: 0.8rem; font-weight: 600;">${progress}%</span>
+          </div>
+          <div style="background: rgba(30, 41, 59, 0.5); height: 6px; border-radius: 3px; overflow: hidden;">
+            <div style="background: ${status.border}; height: 100%; width: ${progress}%; transition: width 0.3s ease;"></div>
+          </div>
+        </div>
+        
+        <!-- Actions -->
+        <div>
+          <button onclick="viewStudentDetails('${student.roll_number}', ${examId})" style="background: rgba(102, 126, 234, 0.2); border: 1px solid #667eea; color: #667eea; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem; width: 100%;">
+            Details
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function formatTime(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}m ${secs}s`;
+}
+
+async function viewStudentDetails(rollNumber, examId) {
+  try {
+    const response = await fetch(`/api/exams/${examId}/submission/${rollNumber}/`, {
+      credentials: 'same-origin',
+      headers: { 'X-CSRFToken': getCookie('csrftoken') }
+    });
+    const data = await response.json();
+    
+    if (data.error) {
+      alert('Error: ' + data.error);
+      return;
+    }
+    
+    // Create detailed view modal
+    const modal = document.createElement('div');
+    modal.id = 'student-details-modal';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10001;
+      backdrop-filter: blur(4px);
+    `;
+    
+    const scoreColor = data.percentage >= 70 ? '#10b981' : data.percentage >= 40 ? '#f59e0b' : '#ef4444';
+    
+    let detailsHTML = `
+      <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); width: 95%; max-width: 1000px; max-height: 90vh; border-radius: 20px; box-shadow: 0 25px 50px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow: hidden;">
+        <!-- Header -->
+        <div style="padding: 24px 32px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <h2 style="margin: 0; color: white; font-size: 1.5rem; font-weight: 700;">${data.student_name}</h2>
+              <span style="color: #94a3b8; font-size: 0.9rem;">${data.roll_number}</span>
+            </div>
+            <p style="margin: 0; color: #94a3b8; font-size: 0.9rem;">Exam Performance Details</p>
+          </div>
+          <button onclick="document.getElementById('student-details-modal').remove()" style="background: rgba(255,255,255,0.1); border: none; color: white; width: 36px; height: 36px; border-radius: 8px; cursor: pointer; font-size: 20px;">✕</button>
+        </div>
+        
+        <!-- Score Summary -->
+        <div style="padding: 24px 32px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+          <div style="background: rgba(51, 65, 85, 0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; text-align: center;">
+            <div style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 12px; font-weight: 600;">SCORE</div>
+            <div style="font-size: 2.5rem; font-weight: 800; color: ${scoreColor}; margin-bottom: 4px;">${Math.round(data.percentage || 0)}%</div>
+            <div style="font-size: 0.85rem; color: #64748b;">${data.total_marks_obtained || 0} marks</div>
+          </div>
+          
+          <div style="background: rgba(51, 65, 85, 0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; text-align: center;">
+            <div style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 12px; font-weight: 600;">STATUS</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: ${data.passed ? '#10b981' : '#ef4444'};">${data.passed ? '✅ PASSED' : '❌ FAILED'}</div>
+            <div style="font-size: 0.85rem; color: #64748b; margin-top: 8px;">Exam Completed</div>
+          </div>
+          
+          <div style="background: rgba(51, 65, 85, 0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; text-align: center;">
+            <div style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 12px; font-weight: 600;">TIME TAKEN</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: #3b82f6;">${formatTime((new Date(data.submitted_at) - new Date(data.started_at)) / 1000)}</div>
+            <div style="font-size: 0.85rem; color: #64748b; margin-top: 8px;">Duration</div>
+          </div>
+          
+          <div style="background: rgba(51, 65, 85, 0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; text-align: center;">
+            <div style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 12px; font-weight: 600;">VIOLATIONS</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: ${data.suspicious_activities > 0 ? '#ef4444' : '#10b981'};">${data.suspicious_activities}</div>
+            <div style="font-size: 0.85rem; color: #64748b; margin-top: 8px;">Suspicious Activities</div>
+          </div>
+        </div>
+    `;
+    
+    // Add answers if status is completed
+    if (data.answers && data.answers.length > 0) {
+      detailsHTML += `
+        <div style="padding: 0 32px; margin-bottom: 20px;">
+          <h3 style="color: white; margin: 0 0 16px; font-size: 1.1rem;">📝 Answer Details</h3>
+          <div style="max-height: 400px; overflow-y: auto;">
+            ${data.answers.map((ans, idx) => `
+              <div style="background: rgba(51, 65, 85, 0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                  <div style="flex: 1;">
+                    <div style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 4px;">Question ${idx + 1} (${ans.question_type.toUpperCase()})</div>
+                    <div style="color: white; font-size: 0.95rem; margin-bottom: 8px;">${ans.question_text.substring(0, 100)}...</div>
+                  </div>
+                  <div style="text-align: right;">
+                    <div style="font-size: 1.3rem; font-weight: 700; color: ${ans.is_correct ? '#10b981' : '#ef4444'};">${ans.marks_obtained}/${ans.marks}</div>
+                    <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 4px;">${ans.is_correct ? '✅ Correct' : '❌ Wrong'}</div>
+                  </div>
+                </div>
+                ${ans.question_type === 'coding' ? `
+                  <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; font-family: monospace; font-size: 0.85rem; color: #10b981; margin-top: 8px; max-height: 200px; overflow-y: auto;">
+                    <div style="color: #94a3b8; margin-bottom: 8px;">Test Cases: ${ans.test_cases_passed}/${ans.total_test_cases} passed</div>
+                    ${ans.submitted_code ? '<pre style="margin: 0; color: #cbd5e1;">' + ans.submitted_code.substring(0, 200) + '...</pre>' : 'No code submitted'}
+                  </div>
+                ` : `
+                  <div style="color: #cbd5e1; font-size: 0.9rem;">Selected: <strong>${ans.selected_option || 'None'}</strong></div>
+                  <div style="color: #64748b; font-size: 0.85rem;">Correct: <strong>${ans.correct_option || 'N/A'}</strong></div>
+                `}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+    
+    detailsHTML += `
+        <div style="padding: 24px 32px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: flex-end; gap: 12px;">
+          <button onclick="document.getElementById('student-details-modal').remove()" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600;">Close</button>
+          <button onclick="exportStudentResult('${data.roll_number}', '${data.student_name}')" style="background: rgba(102, 126, 234, 0.2); border: 1px solid #667eea; color: #667eea; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600;"><i class="fas fa-download"></i> Export</button>
+        </div>
+      </div>
+    `;
+    
+    modal.innerHTML = detailsHTML;
+    document.body.appendChild(modal);
+    
+  } catch (error) {
+    console.error('Error loading student details:', error);
+    alert('Error loading student details. Please try again.');
+  }
+}
+
+function exportStudentResult(rollNumber, studentName) {
+  alert('Exporting results for ' + studentName + '...\n(Feature coming soon)');
+}
+
+function exportExamData(examId) {
+  window.location.href = `/api/exams/${examId}/export/`;
+}
+
+function editExam(examId) {
+  alert('Edit exam ID: ' + examId + '\nEdit functionality coming soon!');
+}
+
+async function deleteCourse(courseId, courseTitle) {
+  if (!confirm(`Are you sure you want to delete "${courseTitle}"?\n\nThis will permanently delete the course and all its modules. This action cannot be undone.`)) {
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/courses/${courseId}/delete/`, {
+      method: 'DELETE',
+      credentials: 'same-origin',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken'),
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.ok) {
+      alert('Course deleted successfully!');
+      location.reload();
+    } else {
+      const error = await response.json();
+      alert('Error deleting course: ' + (error.error || 'Unknown error'));
+    }
+  } catch (error) {
+    console.error('Error deleting course:', error);
+    alert('Error deleting course. Please try again.');
+  }
+}
+
+async function deleteExam(examId, examTitle) {
+  if (!confirm(`Are you sure you want to delete "${examTitle}"?\n\nThis will permanently delete the exam and all its questions. This action cannot be undone.`)) {
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/exams/${examId}/delete/`, {
+      method: 'DELETE',
+      credentials: 'same-origin',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken'),
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.ok) {
+      alert('Exam deleted successfully!');
+      loadExams();
+    } else {
+      const error = await response.json();
+      alert('Error deleting exam: ' + (error.error || 'Unknown error'));
+    }
+  } catch (error) {
+    console.error('Error deleting exam:', error);
+    alert('Error deleting exam. Please try again.');
+  }
+}
+
+// Load exams when switching to exams view
+const originalShowView = showView;
+showView = function(viewName) {
+  originalShowView(viewName);
+  if (viewName === 'exams') {
+    loadExams();
+  }
+};
+
+// Initial load
+document.addEventListener('DOMContentLoaded', function() {
+  // Load exams if on exams view
+  if (!document.getElementById('exams-view').classList.contains('view-hidden')) {
+    loadExams();
+  }
+});
+</script>
+</body>
+</html>

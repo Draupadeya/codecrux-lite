@@ -1,0 +1,92 @@
+from django.urls import path
+from . import views
+from . import api
+
+urlpatterns = [
+    # API Endpoints
+    path('api/login/', api.LoginAPI.as_view(), name='api_login'),
+    path('api/user/', api.UserInfoAPI.as_view(), name='api_user_info'),
+
+    # 1. BASE AND AUTHENTICATION HANDLERS
+    # The root path. Must be UNPROTECTED.
+    path('', views.index, name='index'), 
+
+    # CRITICAL FIX: The ONLY path for handling login POST/GET (Maps to custom logic)
+    path('login/', views.handle_unified_login, name='login'), 
+    
+    # Logout is handled by your custom view which calls django.contrib.auth.logout()
+    path('logout/', views.user_logout, name='logout'),
+    
+    # Post-login router
+    path('post-login-redirect/', views.redirect_to_dashboard, name='post_login_redirect'),
+    
+    # 2. DASHBOARDS (Cleaned up redundant definitions)
+    path('student/dashboard/', views.student_dashboard, name='student_dashboard'),
+    path('admin/dashboard/', views.admin_dashboard, name='admin_dashboard'),
+    
+    # Dashboards (Aliases: Assuming these should be kept for compatibility, but recommend using the /dashboard/ path)
+    path('student-dashboard/', views.student_dashboard, name='student_dashboard'),
+    path('admin-dashboard/', views.admin_dashboard, name='admin_dashboard'),
+   
+
+    # 3. EXAM AND APP PAGES
+    path('exam-flow/', views.exam_flow, name='exam_flow'),  # NEW: Master exam flow with step-by-step
+    path('mic-test/', views.mic_test, name='mic_test'),
+    path('webcam-test/', views.webcam_test, name='webcam_test'),
+    path('exam-rules/', views.exam_rules, name='exam_rules'),
+    path('start-exam/', views.start_exam, name='start_exam'),
+    path('blocked/', views.blocked_page, name='blocked_page'),
+    
+    # 🛑 REMOVED CONFLICTING LINES: 🛑
+    # path('logout/', auth_views.LogoutView.as_view(), name='logout'),  <-- Duplicates your user_logout view
+    # path('accounts/', include('django.contrib.auth.urls')),          <-- Causes TemplateDoesNotExist error
+
+    # 4. API ENDPOINTS
+    path('api/start-session/', views.start_session, name='start_session_api'),
+    path('api/upload-frame/', views.upload_frame, name='upload_frame'),
+    path('api/upload-audio/', views.upload_audio, name='upload_audio'),
+    path('api/end-session/', views.end_session, name='end_session'),
+    path('api/verify-face/', views.verify_face, name='verify_face'),
+    path('api/report-event/', views.report_event, name='report_event'),
+    path('api/get_sessions/', views.get_sessions, name='get_sessions_api'),
+    path('api/block/', views.proctor_block_view, name='proctor_block'),
+    path('api/unblock/', views.proctor_unblock_view, name='proctor_unblock'),
+    path('api/mark-step/', views.mark_step_complete, name='mark_step_complete'),  # NEW: Mark exam flow step
+    
+    # Course API endpoints
+    path('api/courses/create/', views.create_course, name='create_course'),
+    path('api/courses/', views.get_courses, name='get_courses'),
+    path('api/courses/<int:course_id>/', views.get_course_detail, name='get_course_detail'),
+    path('api/courses/<int:course_id>/enroll/', views.enroll_student, name='enroll_student'),
+    path('api/student/courses/', views.get_student_courses, name='get_student_courses'),
+    path('api/student/courses/<str:roll_number>/', views.get_student_courses_by_roll, name='get_student_courses_by_roll'),
+    
+    # Exam API endpoints
+    path('api/exams/create/', views.create_exam, name='create_exam'),
+    path('api/exams/generate-ai/', views.generate_exam_ai, name='generate_exam_ai'),
+    path('api/exams/', views.get_faculty_exams, name='get_faculty_exams'),
+    path('api/exams/<int:exam_id>/delete/', views.delete_exam, name='delete_exam'),
+    path('api/exams/<int:exam_id>/submissions/', views.get_exam_submissions, name='get_exam_submissions'),
+    path('api/exams/<int:exam_id>/submission/<str:roll_number>/', views.get_student_exam_submission, name='get_student_exam_submission'),
+    path('api/exams/<int:exam_id>/export/', views.export_exam_results, name='export_exam_results'),
+    path('api/exam/submit/', views.submit_exam_attempt, name='submit_exam_attempt'),
+    path('api/analytics/', views.get_faculty_analytics, name='get_faculty_analytics'),
+    path('api/change-password/', views.change_password, name='change_password'),
+    path('api/courses/<int:course_id>/delete/', views.delete_course, name='delete_course'),
+    path('api/student/exams/<str:roll_number>/', views.get_student_exams_by_roll, name='get_student_exams_by_roll'),
+    
+    # Auto-enrollment and assignment APIs
+    path('api/courses/<int:course_id>/auto-enroll/', views.auto_enroll_all_students, name='auto_enroll_all_students'),
+    path('api/exams/<int:exam_id>/auto-assign/', views.auto_assign_exam_to_all, name='auto_assign_exam_to_all'),
+    
+    # StudyMate Frontend Routes
+    path('studymate/dashboard/', views.studymate_dashboard, name='studymate_dashboard'),
+    path('studymate/exam/', views.proctored_exam_view, name='proctored_exam'),
+    
+    # 5. PROCTOR VIEWS
+    path('proctor/view/<int:candidate_id>/', views.proctor_view, name='proctor_view'),
+   
+    
+    # URL to mark a quiz/code challenge complete
+  
+]

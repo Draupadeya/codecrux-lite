@@ -1,0 +1,2246 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Proctoring Flow</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="/studymate/static/style.css">
+    
+    <!-- Face Detection Library -->
+    <script async src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    
+    <!-- TensorFlow.js for Object Detection -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+        }
+
+        /* CodeTantra/CodeChef Style Header */
+        .exam-header {
+            background: #ffffff;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .exam-header .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1a73e8;
+        }
+
+        .exam-header .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .exam-flow-container {
+            max-width: 1200px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        /* Modern Step Indicator */
+        .step-indicator {
+            background: #ffffff;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 25px 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+        }
+
+        .step-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            color: #999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1rem;
+            transition: all 0.3s;
+            border: 3px solid #e0e0e0;
+        }
+
+        .step.active .step-circle {
+            background: #1a73e8;
+            color: #fff;
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 4px rgba(26, 115, 232, 0.2);
+        }
+
+        .step.completed .step-circle {
+            background: #28a745;
+            color: #fff;
+            border-color: #28a745;
+        }
+
+        .step-label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #666;
+        }
+
+        .step.active .step-label {
+            color: #1a73e8;
+            font-weight: 600;
+        }
+
+        .step.completed .step-label {
+            color: #28a745;
+        }
+
+        /* Step connectors */
+        .step-connector {
+            width: 80px;
+            height: 3px;
+            background: #e0e0e0;
+            margin: 0 10px;
+        }
+
+        .step-connector.completed {
+            background: #28a745;
+        }
+
+        /* ---- STEP CONTENT ---- */
+        .step-content {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .step-content.active {
+            display: flex;
+        }
+
+        .step-content h2 {
+            color: #1a73e8;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        .step-content p {
+            color: #666;
+            text-align: center;
+            margin-bottom: 20px;
+            max-width: 500px;
+        }
+
+        /* ---- BUTTONS ---- */
+        .step-button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            justify-content: space-between;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .btn-next, .btn-back {
+            padding: 14px 32px;
+            font-weight: 600;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1rem;
+        }
+
+        .btn-next {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-next:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        .btn-next:disabled {
+            background: #e9ecef;
+            color: #adb5bd;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .btn-back {
+            background: #fff;
+            color: #666;
+            border: 2px solid #e9ecef;
+        }
+
+        .btn-back:hover {
+            background: #f8f9fa;
+            border-color: #dee2e6;
+        }
+
+        /* ---- STATUS MESSAGES ---- */
+        .status-msg {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        .status-msg.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-msg.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-msg.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        /* ---- MIC/WEBCAM PREVIEW ---- */
+        .media-preview {
+            width: 100%;
+            max-width: 400px;
+            margin: 20px 0;
+            border-radius: 8px;
+            background: #000;
+        }
+
+        #micTestVideo, #webcamTestVideo {
+            width: 100%;
+            border-radius: 8px;
+        }
+
+        /* ---- RULES CONTENT ---- */
+        .rules-list {
+            text-align: left;
+            max-width: 600px;
+            max-height: 400px;
+            overflow-y: auto;
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .rules-list ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .rules-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            color: #333;
+        }
+
+        .rules-list li:last-child {
+            border-bottom: none;
+        }
+
+        .rules-list li i {
+            color: #1a73e8;
+            margin-right: 10px;
+            min-width: 20px;
+        }
+
+        /* Checkbox for rules acceptance */
+        .accept-checkbox {
+            margin-top: 20px;
+        }
+
+        .accept-checkbox input[type="checkbox"] {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .accept-checkbox label {
+            cursor: pointer;
+            color: #333;
+            font-weight: 500;
+        }
+
+        /* ---- HIDDEN IFRAME FOR EXAM ---- */
+        .exam-iframe-container {
+            width: 100%;
+            height: 100%;
+            display: none;
+        }
+
+        #examIframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* Anti-cheat warnings */
+        .anti-cheat-warning {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #dc3545;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-weight: 600;
+            z-index: 9999;
+            display: none;
+            animation: slideDown 0.3s ease-in;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+            }
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        /* ---- SPLIT SCREEN ENHANCEMENTS ---- */
+        
+        /* Question Tab Hover */
+        .question-tab:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        /* Output Tab Hover */
+        .output-tab:hover {
+            color: #cccccc !important;
+        }
+
+        /* Run/Submit Button Hover */
+        #runCodeBtn:hover {
+            background: #1a9b6e;
+            box-shadow: 0 2px 8px rgba(22,130,93,0.4);
+        }
+
+        #submitCodeBtn:hover {
+            background: #0063b1;
+            box-shadow: 0 2px 8px rgba(0,120,212,0.4);
+        }
+
+        /* Submit Exam Button Hover */
+        #submitExamBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        /* Code Editor Scrollbar (Webkit) */
+        #codeEditor::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        #codeEditor::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+
+        #codeEditor::-webkit-scrollbar-thumb {
+            background: #424242;
+            border-radius: 5px;
+        }
+
+        #codeEditor::-webkit-scrollbar-thumb:hover {
+            background: #4e4e4e;
+        }
+
+        /* Question Navigation Scrollbar */
+        .question-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .question-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .question-content::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+
+        .question-content::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        /* Code Syntax Highlighting Helper Classes */
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            color: #e83e8c;
+            font-size: 0.9em;
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 1200px) {
+            /* Stack panels vertically on smaller screens */
+            #examContent > div {
+                flex-direction: column !important;
+            }
+            
+            #examContent > div > div:first-child,
+            #examContent > div > div:last-child {
+                width: 100% !important;
+                border-right: none !important;
+                border-bottom: 1px solid #e0e0e0;
+            }
+        }
+
+        /* Pulsing animation for LIVE indicator */
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        /* Force all interactive elements to be clickable */
+        button, .question-tab, .output-tab, textarea, input, select, a {
+            pointer-events: auto !important;
+            cursor: pointer !important;
+        }
+        
+        textarea, input, select {
+            cursor: text !important;
+        }
+        
+        /* Ensure exam content is not blocked */
+        #examContent, #examContent * {
+            pointer-events: auto !important;
+        }
+
+        /* MCQ Option hover effects */
+        #mcqMainSection label:hover {
+            background: #e3f2fd !important;
+            border-color: #1a73e8 !important;
+            transform: translateX(5px);
+        }
+
+        #mcqMainSection input[type="radio"]:checked + span {
+            font-weight: 600;
+            color: #1a73e8;
+        }
+
+        #mcqMainSection label:has(input:checked) {
+            background: #e3f2fd !important;
+            border-color: #1a73e8 !important;
+        }
+    </style>
+</head>
+<body oncontextmenu="return false;" ondragstart="return false;">
+    <!-- CodeTantra/CodeChef Style Header -->
+    <div class="exam-header">
+        <div class="logo">
+            <i class="fas fa-graduation-cap"></i> ProctorExam
+        </div>
+        <div class="user-info">
+            <div style="text-align: right;">
+                <div style="font-weight: 600; color: #333;">{{ request.user.name }}</div>
+                <div style="font-size: 0.85rem; color: #666;">Roll: {{ request.user.roll_number }}</div>
+            </div>
+            <img src="{{ request.user.photo.url }}" alt="Profile" style="width: 45px; height: 45px; border-radius: 50%; border: 2px solid #1a73e8;">
+        </div>
+    </div>
+
+    <!-- Anti-cheat warning banner -->
+    <div class="anti-cheat-warning" id="antiCheatWarning">
+        ⚠️ Suspicious Activity Detected - Tab Switch, Developer Tools, or Fullscreen Exit
+    </div>
+
+    <div class="exam-flow-container">
+
+        <!-- STEP INDICATOR -->
+        <div class="step-indicator">
+            <div class="step active" data-step="1">
+                <div class="step-circle">1</div>
+                <div class="step-label">Microphone</div>
+            </div>
+            <div class="step-connector"></div>
+            <div class="step" data-step="2">
+                <div class="step-circle">2</div>
+                <div class="step-label">Webcam & Face</div>
+            </div>
+            <div class="step-connector"></div>
+            <div class="step" data-step="3">
+                <div class="step-circle">3</div>
+                <div class="step-label">Instructions</div>
+            </div>
+            <div class="step-connector"></div>
+            <div class="step" data-step="4">
+                <div class="step-circle">4</div>
+                <div class="step-label">Start Exam</div>
+            </div>
+        </div>
+
+        <!-- STEP CONTENT -->
+        <div class="step-content active" id="step1">
+            <h2>🎤 Microphone Check</h2>
+            <p>Click "Start Test" to check if your microphone is working properly.</p>
+            <button id="startMicTest" class="btn btn-primary btn-lg" style="margin-top: 20px;">
+                <i class="fas fa-microphone"></i> Start Mic Test
+            </button>
+            <div id="micStatus" class="status-msg" style="display: none;"></div>
+            <div class="step-button-group" style="margin-top: 50px;">
+                <button class="btn-next" id="nextFromMic" disabled>Next Step →</button>
+            </div>
+        </div>
+
+        <div class="step-content" id="step2">
+            <div style="max-width: 900px; width: 100%;">
+                <h2 style="text-align: center; margin-bottom: 10px;">� Webcam & Face Verification</h2>
+                <p style="text-align: center; color: #666; margin-bottom: 30px;">
+                    We need to verify your identity. Please ensure only you are visible in the camera.
+                </p>
+                
+                <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 30px; margin-bottom: 30px;">
+                    <!-- Webcam Feed -->
+                    <div>
+                        <div style="background: #000; border-radius: 12px; overflow: hidden; position: relative; aspect-ratio: 4/3;">
+                            <video id="webcamTestVideo" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+                            <canvas id="faceCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
+                        </div>
+                        <p id="webcamStatus" style="text-align: center; margin-top: 15px; font-size: 0.95rem; color: #666;">
+                            <i class="fas fa-spinner fa-spin"></i> Initializing camera and AI model...
+                        </p>
+                    </div>
+                    
+                    <!-- Face Detection Status -->
+                    <div style="display: flex; flex-direction: column; justify-content: center;">
+                        <div id="faceDetectionStatus" style="display: none;">
+                            <!-- Face Count Badge -->
+                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; padding: 25px; text-align: center; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);">
+                                <div style="font-size: 0.85rem; color: rgba(255,255,255,0.9); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">Faces Detected</div>
+                                <div style="font-size: 3.5rem; font-weight: 700; color: #fff;" id="faceCountNumber">0</div>
+                            </div>
+                            
+                            <!-- Success Message -->
+                            <div id="faceSuccess" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); border-radius: 12px; padding: 20px; display: none; box-shadow: 0 4px 15px rgba(56, 239, 125, 0.3);">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <i class="fas fa-check-circle" style="color: #fff; font-size: 2rem;"></i>
+                                    <div style="color: #fff;">
+                                        <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 5px;">Verified!</div>
+                                        <div style="font-size: 0.9rem; opacity: 0.95;">You can proceed to the next step.</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Warning Message -->
+                            <div id="faceWarning" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 12px; padding: 20px; display: none; box-shadow: 0 4px 15px rgba(245, 87, 108, 0.3);">
+                                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                                    <i class="fas fa-exclamation-triangle" style="color: #fff; font-size: 2rem;"></i>
+                                    <div style="color: #fff;">
+                                        <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 5px;">Action Required</div>
+                                        <div style="font-size: 0.9rem; opacity: 0.95;" id="warningMessage"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Requirements List -->
+                        <div style="background: #f8f9fa; border-radius: 12px; padding: 20px; margin-top: 20px; border: 1px solid #e9ecef;">
+                            <div style="font-weight: 600; margin-bottom: 15px; color: #333; font-size: 0.95rem;">
+                                <i class="fas fa-info-circle" style="color: #1a73e8;"></i> Requirements:
+                            </div>
+                            <ul style="margin: 0; padding-left: 20px; color: #666; font-size: 0.9rem; line-height: 1.9;">
+                                <li>Ensure good lighting on your face</li>
+                                <li>Look directly at the camera</li>
+                                <li>Only you should be visible</li>
+                                <li>Remove any face coverings</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="step-button-group">
+                    <button class="btn-back" id="backFromWebcam">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </button>
+                    <button class="btn-next" id="nextFromWebcam" disabled>
+                        Next Step <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-content" id="step3">
+            <h2>📋 Exam Rules & Requirements</h2>
+            <p>Please read all rules carefully before starting the exam.</p>
+            <div class="rules-list">
+                <ul>
+                    <li><i class="fas fa-ban"></i> No mobile phones or smartwatches allowed</li>
+                    <li><i class="fas fa-desktop"></i> Workspace must be clear of notes and books</li>
+                    <li><i class="fas fa-search"></i> No screen sharing or external monitors allowed</li>
+                    <li><i class="fas fa-video"></i> Your face must remain fully visible on webcam</li>
+                    <li><i class="fas fa-users"></i> No other people or pets in the room</li>
+                    <li><i class="fas fa-eye"></i> Do not look away from the screen excessively</li>
+                    <li><i class="fas fa-comments-slash"></i> No talking or communication with others</li>
+                    <li><i class="fas fa-microphone"></i> Minimize background noise</li>
+                    <li><i class="fas fa-sign-out-alt"></i> You cannot leave your seat once exam starts</li>
+                    <li><i class="fas fa-ban"></i> Tab switching and fullscreen exit will be flagged</li>
+                </ul>
+            </div>
+            <div class="accept-checkbox">
+                <input type="checkbox" id="acceptRules">
+                <label for="acceptRules">I have read and accept all exam rules and requirements</label>
+            </div>
+            <div class="step-button-group" style="margin-top: 30px;">
+                <button class="btn-back" id="backFromRules">← Back</button>
+                <button class="btn-next" id="nextFromRules" disabled>Start Exam →</button>
+            </div>
+        </div>
+
+        <div class="step-content" id="step4">
+            <h2>✅ Ready to Begin</h2>
+            <p>All checks complete! Click "Enter Exam" to start your proctored exam.</p>
+            <p style="color: #dc3545; font-weight: 600;">⚠️ Your exam will be in fullscreen mode with proctoring active.</p>
+            <p style="font-size: 0.9rem; color: #666;">• Tab switches will be recorded<br>• Developer tools are disabled<br>• Fullscreen exit will be flagged</p>
+            <div class="step-button-group" style="margin-top: 30px;">
+                <button class="btn-back" id="backFromExam">← Back</button>
+                <button class="btn-next" id="startExam" style="background: #28a745; font-size: 1.1rem; padding: 15px 40px;">
+                    <i class="fas fa-play"></i> Enter Exam
+                </button>
+            </div>
+        </div>
+
+        <!-- EXAM CONTENT (Hidden until ready) - CodeTantra/CodeChef Style -->
+        <div class="exam-iframe-container" id="examIframeContainer">
+            <div id="examContent" style="padding: 0; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 10000; background: white; overflow-y: auto;">
+                <!-- EXAM HEADER -->
+                <div style="background: #ffffff; border-bottom: 1px solid #e0e0e0; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    <div style="display: flex; align-items: center; gap: 20px;">
+                        <div style="font-size: 1.3rem; font-weight: 700; color: #1a73e8;">
+                            <i class="fas fa-code"></i> CodeExam
+                        </div>
+                        <div style="font-size: 0.9rem; color: #666;">
+                            <strong>{{ request.user.name }}</strong> • Roll: {{ request.user.roll_number }}
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 25px; align-items: center;">
+                        <!-- VIOLATION COUNTER -->
+                        <div id="violationCounter" style="display: flex; align-items: center; gap: 10px; background: #fff3cd; padding: 8px 15px; border-radius: 6px; border: 2px solid #ffc107;">
+                            <i class="fas fa-shield-alt" style="color: #ff9800;"></i>
+                            <div style="display: flex; flex-direction: column; line-height: 1.2;">
+                                <span style="font-size: 0.7rem; color: #666; text-transform: uppercase;">Violations</span>
+                                <span style="font-weight: 700; font-size: 1.1rem; color: #dc3545;" id="violationCountDisplay">0/10</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px; background: #f8f9fa; padding: 8px 15px; border-radius: 6px;">
+                            <i class="fas fa-clock" style="color: #1a73e8;"></i>
+                            <span style="font-weight: 600; font-size: 1.1rem; color: #333;" id="elapsedTime">00:00</span>
+                        </div>
+                        <!-- LIVE WEBCAM FEED -->
+                        <div style="background: black; border-radius: 8px; overflow: hidden; border: 2px solid #28a745; position: relative;">
+                            <video id="liveWebcamFeed" style="width: 100px; height: 75px; display: block;" autoplay playsinline muted></video>
+                            <div style="position: absolute; top: 3px; right: 3px; background: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.7rem; font-weight: 700; display: flex; align-items: center; gap: 3px;">
+                                <span style="width: 6px; height: 6px; background: white; border-radius: 50%; animation: pulse 1.5s infinite;"></span>
+                                LIVE
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MAIN TAB NAVIGATION: MCQ vs CODING -->
+                <div style="background: white; border-bottom: 2px solid #e0e0e0; padding: 0; display: flex;">
+                    <button id="mcqMainTab" class="main-exam-tab" style="flex: 1; padding: 18px 30px; background: #1a73e8; color: white; border: none; cursor: pointer; font-weight: 700; font-size: 1.1rem; transition: all 0.3s; border-right: 1px solid #e0e0e0;">
+                        📋 MCQ Questions
+                    </button>
+                    <button id="codingMainTab" class="main-exam-tab" style="flex: 1; padding: 18px 30px; background: #f8f9fa; color: #666; border: none; cursor: pointer; font-weight: 700; font-size: 1.1rem; transition: all 0.3s;">
+                        💻 Coding Challenge
+                    </button>
+                </div>
+
+                <!-- MCQ SECTION -->
+                <div id="mcqMainSection" style="flex: 1; overflow-y: auto; padding: 40px; background: #f5f7fa; display: block;">
+                    <div style="max-width: 900px; margin: 0 auto;">
+                        <h2 style="color: #1a73e8; margin-bottom: 30px; font-size: 1.8rem; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-list-check"></i> Multiple Choice Questions
+                        </h2>
+                        <p style="color: #666; margin-bottom: 30px; font-size: 1.05rem;">Answer all questions. Select the best answer for each question.</p>
+                        
+                        <!-- MCQ Question 1 -->
+                        <div style="background: white; padding: 30px; border-radius: 12px; border-left: 5px solid #1a73e8; margin-bottom: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                            <h4 style="color: #333; font-size: 1.3rem; margin-bottom: 20px; font-weight: 600;">Question 1: What is the primary use of a database?</h4>
+                            <div style="margin-top: 20px;">
+                                <label style="display: block; margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent;">
+                                    <input type="radio" name="mcq1" value="a" style="margin-right: 12px; transform: scale(1.3);"> 
+                                    <span style="font-size: 1.05rem;">a) Storing and organizing data</span>
+                                </label>
+                                <label style="display: block; margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent;">
+                                    <input type="radio" name="mcq1" value="b" style="margin-right: 12px; transform: scale(1.3);"> 
+                                    <span style="font-size: 1.05rem;">b) Running applications</span>
+                                </label>
+                                <label style="display: block; margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent;">
+                                    <input type="radio" name="mcq1" value="c" style="margin-right: 12px; transform: scale(1.3);"> 
+                                    <span style="font-size: 1.05rem;">c) Displaying web pages</span>
+                                </label>
+                                <label style="display: block; margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent;">
+                                    <input type="radio" name="mcq1" value="d" style="margin-right: 12px; transform: scale(1.3);"> 
+                                    <span style="font-size: 1.05rem;">d) Creating user interfaces</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- MCQ Question 2 -->
+                        <div style="background: white; padding: 30px; border-radius: 12px; border-left: 5px solid #1a73e8; margin-bottom: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                            <h4 style="color: #333; font-size: 1.3rem; margin-bottom: 20px; font-weight: 600;">Question 2: Which of the following is a relational database?</h4>
+                            <div style="margin-top: 20px;">
+                                <label style="display: block; margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent;">
+                                    <input type="radio" name="mcq2" value="a" style="margin-right: 12px; transform: scale(1.3);"> 
+                                    <span style="font-size: 1.05rem;">a) MongoDB</span>
+                                </label>
+                                <label style="display: block; margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent;">
+                                    <input type="radio" name="mcq2" value="b" style="margin-right: 12px; transform: scale(1.3);"> 
+                                    <span style="font-size: 1.05rem;">b) MySQL</span>
+                                </label>
+                                <label style="display: block; margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent;">
+                                    <input type="radio" name="mcq2" value="c" style="margin-right: 12px; transform: scale(1.3);"> 
+                                    <span style="font-size: 1.05rem;">c) Redis</span>
+                                </label>
+                                <label style="display: block; margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent;">
+                                    <input type="radio" name="mcq2" value="d" style="margin-right: 12px; transform: scale(1.3);"> 
+                                    <span style="font-size: 1.05rem;">d) Cassandra</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- MCQ Question 3 -->
+                        <div style="background: white; padding: 30px; border-radius: 12px; border-left: 5px solid #1a73e8; margin-bottom: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                            <h4 style="color: #333; font-size: 1.3rem; margin-bottom: 20px; font-weight: 600;">Question 3: What does SQL stand for?</h4>
+                            <div style="margin-top: 20px;">
+                                <label style="display: block; margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent;">
+                                    <input type="radio" name="mcq3" value="a" style="margin-right: 12px; transform: scale(1.3);"> 
+                                    <span style="font-size: 1.05rem;">a) Structured Query List</span>
+                                </label>
+                                <label style="display: block; margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent;">
+                                    <input type="radio" name="mcq3" value="b" style="margin-right: 12px; transform: scale(1.3);"> 
+                                    <span style="font-size: 1.05rem;">b) Structured Query Language</span>
+                                </label>
+                                <label style="display: block; margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent;">
+                                    <input type="radio" name="mcq3" value="c" style="margin-right: 12px; transform: scale(1.3);"> 
+                                    <span style="font-size: 1.05rem;">c) Simple Query Language</span>
+                                </label>
+                                <label style="display: block; margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent;">
+                                    <input type="radio" name="mcq3" value="d" style="margin-right: 12px; transform: scale(1.3);"> 
+                                    <span style="font-size: 1.05rem;">d) System Query Language</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div style="text-align: center; margin-top: 40px;">
+                            <button id="proceedToCodingBtn" style="background: #28a745; color: white; padding: 18px 50px; border: none; border-radius: 10px; font-size: 1.2rem; font-weight: 700; cursor: pointer; box-shadow: 0 4px 15px rgba(40,167,69,0.3); transition: all 0.3s;">
+                                <i class="fas fa-arrow-right"></i> Proceed to Coding Section
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CODING SECTION (Split Screen) -->
+                <div id="codingMainSection" style="flex: 1; display: none; flex-direction: column;">
+                    <!-- SPLIT SCREEN LAYOUT: Questions (Left) | Code Editor (Right) -->
+                    <div style="flex: 1; display: flex; height: 100%;">
+                        
+                        <!-- LEFT PANEL: Question & Test Cases -->
+                        <div style="width: 45%; border-right: 1px solid #e0e0e0; display: flex; flex-direction: column; background: #fafafa;">
+                            <!-- Question Navigation -->
+                            <div style="background: white; border-bottom: 1px solid #e0e0e0; padding: 15px 20px; display: flex; gap: 10px; overflow-x: auto;">
+                                <button class="question-tab active" data-question="1" style="min-width: 100px; padding: 10px 15px; background: #1a73e8; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.3s;">
+                                    Question 1
+                                </button>
+                                <button class="question-tab" data-question="2" style="min-width: 100px; padding: 10px 15px; background: #f8f9fa; color: #666; border: 1px solid #e0e0e0; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.3s;">
+                                    Question 2
+                                </button>
+                                <button class="question-tab" data-question="3" style="min-width: 100px; padding: 10px 15px; background: #f8f9fa; color: #666; border: 1px solid #e0e0e0; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.3s;">
+                                    Question 3
+                                </button>
+                            </div>
+
+                            <!-- Question Content Area -->
+                            <div style="flex: 1; overflow-y: auto; padding: 25px;">
+                                
+                                <!-- ALERTS -->
+                                <div id="suspiciousActivityAlert" style="background: #fff3cd; border-left: 4px solid #ff9800; padding: 12px 15px; border-radius: 4px; margin-bottom: 20px; display: none; font-size: 0.9rem;">
+                                    <i class="fas fa-exclamation-triangle"></i> <strong>Warning:</strong> Suspicious activity detected and logged.
+                            </div>
+
+                            <!-- Question 1 -->
+                            <div class="question-content active" data-question="1">
+                                <h2 style="color: #333; font-size: 1.5rem; margin-bottom: 15px;">1. Two Sum Problem</h2>
+                                <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                                    <h3 style="color: #1a73e8; font-size: 1.1rem; margin-bottom: 15px;">Problem Description</h3>
+                                    <p style="line-height: 1.7; color: #555; margin-bottom: 15px;">
+                                        Given an array of integers <code>nums</code> and an integer <code>target</code>, return indices of the two numbers such that they add up to <code>target</code>.
+                                    </p>
+                                    <p style="line-height: 1.7; color: #555;">
+                                        You may assume that each input would have exactly one solution, and you may not use the same element twice.
+                                    </p>
+                                </div>
+
+                                <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                                    <h3 style="color: #1a73e8; font-size: 1.1rem; margin-bottom: 15px;">Examples</h3>
+                                    <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 15px; font-family: 'Courier New', monospace; font-size: 0.9rem;">
+                                        <strong>Input:</strong> nums = [2,7,11,15], target = 9<br>
+                                        <strong>Output:</strong> [0,1]<br>
+                                        <strong>Explanation:</strong> Because nums[0] + nums[1] == 9, we return [0, 1].
+                                    </div>
+                                    <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 0.9rem;">
+                                        <strong>Input:</strong> nums = [3,2,4], target = 6<br>
+                                        <strong>Output:</strong> [1,2]
+                                    </div>
+                                </div>
+
+                                <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                    <h3 style="color: #1a73e8; font-size: 1.1rem; margin-bottom: 15px;">Constraints</h3>
+                                    <ul style="line-height: 2; color: #555; padding-left: 20px;">
+                                        <li>2 ≤ nums.length ≤ 10<sup>4</sup></li>
+                                        <li>-10<sup>9</sup> ≤ nums[i] ≤ 10<sup>9</sup></li>
+                                        <li>-10<sup>9</sup> ≤ target ≤ 10<sup>9</sup></li>
+                                        <li>Only one valid answer exists.</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <!-- Question 2 (Hidden by default) -->
+                            <div class="question-content" data-question="2" style="display: none;">
+                                <h2 style="color: #333; font-size: 1.5rem; margin-bottom: 15px;">2. Reverse a String</h2>
+                                <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                    <p style="line-height: 1.7; color: #555;">
+                                        Write a function that reverses a string. The input string is given as an array of characters.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Question 3 (Hidden by default) -->
+                            <div class="question-content" data-question="3" style="display: none;">
+                                <h2 style="color: #333; font-size: 1.5rem; margin-bottom: 15px;">3. Find Maximum Number</h2>
+                                <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                    <p style="line-height: 1.7; color: #555;">
+                                        Given an array of integers, find and return the maximum number in the array.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT PANEL: Code Editor -->
+                    <div style="width: 55%; display: flex; flex-direction: column; background: #1e1e1e;">
+                        <!-- Editor Toolbar -->
+                        <div style="background: #2d2d30; border-bottom: 1px solid #3e3e42; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; gap: 15px; align-items: center;">
+                                <select id="languageSelect" style="padding: 8px 15px; background: #3e3e42; color: white; border: 1px solid #555; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                                    <option value="python">Python 3</option>
+                                    <option value="javascript">JavaScript</option>
+                                    <option value="java">Java</option>
+                                    <option value="cpp">C++</option>
+                                </select>
+                                <div style="color: #858585; font-size: 0.85rem;">
+                                    <i class="fas fa-keyboard"></i> Use Ctrl+Space for autocomplete
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button id="runCodeBtn" style="background: #16825d; color: white; padding: 8px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: all 0.3s;">
+                                    <i class="fas fa-play"></i> Run Code
+                                </button>
+                                <button id="submitCodeBtn" style="background: #0078d4; color: white; padding: 8px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: all 0.3s;">
+                                    <i class="fas fa-check"></i> Submit
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Code Editor -->
+                        <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+                            <textarea id="codeEditor" spellcheck="false" style="flex: 1; width: 100%; padding: 20px; background: #1e1e1e; color: #d4d4d4; border: none; font-family: 'Consolas', 'Courier New', monospace; font-size: 14px; line-height: 1.6; resize: none; outline: none;">def twoSum(nums, target):
+    """
+    :type nums: List[int]
+    :type target: int
+    :rtype: List[int]
+    """
+    # Write your solution here
+    pass</textarea>
+                        </div>
+
+                        <!-- Output/Test Results Panel -->
+                        <div style="height: 250px; border-top: 1px solid #3e3e42; background: #252526; display: flex; flex-direction: column;">
+                            <div style="background: #2d2d30; padding: 10px 20px; display: flex; gap: 20px; border-bottom: 1px solid #3e3e42;">
+                                <button class="output-tab active" data-tab="console" style="background: none; border: none; color: #cccccc; padding: 8px 12px; cursor: pointer; font-weight: 600; border-bottom: 2px solid #0078d4;">
+                                    Console
+                                </button>
+                                <button class="output-tab" data-tab="testcases" style="background: none; border: none; color: #858585; padding: 8px 12px; cursor: pointer; font-weight: 600; border-bottom: 2px solid transparent;">
+                                    Test Cases
+                                </button>
+                            </div>
+                            <div style="flex: 1; overflow-y: auto; padding: 15px 20px; position: relative;">
+                                <!-- Advanced skeleton for output area -->
+                                <div id="outputSkeleton" style="display: none;">
+                                    <div class="skeleton skeleton-text skeleton-text-lg" style="margin-bottom: 0.75rem;"></div>
+                                    <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                                    <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                                    <div class="skeleton skeleton-text" style="width: 60%; margin-top: 0.75rem;"></div>
+                                </div>
+
+                                <div id="consoleOutput" class="output-panel active" style="font-family: 'Consolas', 'Courier New', monospace; font-size: 0.9rem; color: #cccccc; white-space: pre-wrap;">
+                                    <div style="color: #858585;">Run your code to see output here...</div>
+                                </div>
+                                <div id="testCasesOutput" class="output-panel" style="display: none; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.9rem; color: #cccccc;">
+                                    <div style="color: #858585;">Test cases will appear after submission...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+                <!-- End of Coding Section -->
+
+                <!-- Bottom Action Bar (Shared between both sections) -->
+                <div style="background: #f8f9fa; border-top: 1px solid #e0e0e0; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 -2px 8px rgba(0,0,0,0.05);">
+                    <div style="color: #666; font-size: 0.9rem;">
+                        <i class="fas fa-info-circle"></i> Answer all questions before submitting • Your code is auto-saved
+                    </div>
+                    <button id="submitExamBtn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 35px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 700; cursor: pointer; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); display: flex; align-items: center; gap: 10px; transition: all 0.3s;">
+                        <i class="fas fa-paper-plane"></i> Submit Exam
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // STEP MANAGEMENT
+        // ==========================================
+        let currentStep = 1;
+        const maxSteps = 4;
+        const completedSteps = new Set();
+
+        function showStep(stepNum) {
+            // Hide all steps
+            document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
+            
+            // Show current step
+            document.getElementById('step' + stepNum).classList.add('active');
+            
+            // Update step indicators
+            document.querySelectorAll('.step').forEach(el => {
+                const step = parseInt(el.dataset.step);
+                el.classList.remove('active');
+                if (step === stepNum) {
+                    el.classList.add('active');
+                }
+            });
+            
+            // Update connectors
+            document.querySelectorAll('.step-connector').forEach((connector, index) => {
+                if (index < stepNum - 1) {
+                    connector.classList.add('completed');
+                } else {
+                    connector.classList.remove('completed');
+                }
+            });
+            
+            currentStep = stepNum;
+        }
+
+        function markStepComplete(stepNum) {
+            completedSteps.add(stepNum);
+            const stepEl = document.querySelector(`.step[data-step="${stepNum}"]`);
+            stepEl.classList.add('completed');
+        }
+
+        function goToStep(stepNum) {
+            if (stepNum >= 1 && stepNum <= maxSteps) {
+                showStep(stepNum);
+                window.scrollTo(0, 0);
+            }
+        }
+
+        // ==========================================
+        // STEP 1: MICROPHONE TEST
+        // ==========================================
+        document.getElementById('startMicTest').addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                stream.getTracks().forEach(track => track.stop());
+                
+                const statusEl = document.getElementById('micStatus');
+                statusEl.innerHTML = '✅ Microphone is working!';
+                statusEl.className = 'status-msg success';
+                statusEl.style.display = 'block';
+                
+                markStepComplete(1);
+                document.getElementById('nextFromMic').disabled = false;
+            } catch (err) {
+                const statusEl = document.getElementById('micStatus');
+                statusEl.innerHTML = '❌ Microphone not detected. Please check permissions.';
+                statusEl.className = 'status-msg error';
+                statusEl.style.display = 'block';
+            }
+        });
+
+        document.getElementById('nextFromMic').addEventListener('click', () => goToStep(2));
+
+        // ==========================================
+        // STEP 2: WEBCAM TEST WITH FACE DETECTION
+        // ==========================================
+        let faceDetectionInterval = null;
+        
+        async function startWebcamTest() {
+            try {
+                console.log('📹 Starting webcam test...');
+                
+                // Request camera access
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'user'
+                    } 
+                });
+                
+                const video = document.getElementById('webcamTestVideo');
+                video.srcObject = stream;
+                window.webcamStream = stream;
+                
+                document.getElementById('webcamStatus').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Camera active - loading AI model...';
+                document.getElementById('webcamStatus').style.color = '#1a73e8';
+                
+                // Wait for video to be ready
+                await new Promise(resolve => {
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        console.log('✅ Video ready:', video.videoWidth, 'x', video.videoHeight);
+                        resolve();
+                    };
+                });
+                
+                // Load face detection model
+                const modelLoaded = await loadFaceDetectionModel();
+                
+                if (modelLoaded) {
+                    // Start face detection
+                    startFaceDetection();
+                } else {
+                    document.getElementById('webcamStatus').innerHTML = '⚠️ Face detection unavailable. Please refresh the page.';
+                }
+                
+            } catch (err) {
+                console.error('❌ Webcam error:', err);
+                document.getElementById('webcamStatus').innerHTML = '❌ Camera not accessible. Please allow camera permissions.';
+                document.getElementById('webcamStatus').style.color = '#dc3545';
+            }
+        }
+
+        // Load face-api.js model
+        async function loadFaceDetectionModel() {
+            try {
+                console.log('🔄 Loading face detection model...');
+                const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model/';
+                
+                // Wait for face-api to load
+                if (typeof faceapi === 'undefined') {
+                    console.log('⏳ Waiting for face-api library...');
+                    await new Promise(resolve => {
+                        const checkFaceApi = setInterval(() => {
+                            if (typeof faceapi !== 'undefined') {
+                                clearInterval(checkFaceApi);
+                                resolve();
+                            }
+                        }, 100);
+                    });
+                }
+                
+                // Load the tiny face detector model
+                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                console.log('✅ Face detection model loaded successfully');
+                
+                document.getElementById('webcamStatus').innerHTML = '✅ Camera ready - AI model loaded. Analyzing faces...';
+                document.getElementById('webcamStatus').style.color = '#28a745';
+                
+                return true;
+            } catch (err) {
+                console.error('❌ Error loading face detection model:', err);
+                document.getElementById('webcamStatus').innerHTML = '⚠️ Face detection model failed to load. Check console.';
+                document.getElementById('webcamStatus').style.color = '#dc3545';
+                return false;
+            }
+        }
+
+        // Continuous face detection during webcam check
+        function startFaceDetection() {
+            if (faceDetectionInterval) clearInterval(faceDetectionInterval);
+            
+            let detectionCount = 0;
+            
+            faceDetectionInterval = setInterval(async () => {
+                try {
+                    const video = document.getElementById('webcamTestVideo');
+                    const canvas = document.getElementById('faceCanvas');
+                    
+                    if (typeof faceapi === 'undefined') {
+                        console.log('⏳ Face-api not loaded yet...');
+                        return;
+                    }
+                    
+                    if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+                        console.log('⏳ Waiting for video data...');
+                        return;
+                    }
+                    
+                    // Show detection status
+                    document.getElementById('faceDetectionStatus').style.display = 'block';
+                    
+                    // Detect faces
+                    const detections = await faceapi.detectAllFaces(video, 
+                        new faceapi.TinyFaceDetectorOptions({
+                            inputSize: 224,
+                            scoreThreshold: 0.5
+                        }));
+                    
+                    detectionCount++;
+                    console.log(`Detection #${detectionCount}: Found ${detections.length} face(s)`);
+                    
+                    // Draw detections on canvas
+                    if (canvas) {
+                        const displaySize = { width: video.videoWidth, height: video.videoHeight };
+                        faceapi.matchDimensions(canvas, displaySize);
+                        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                        
+                        const resizedDetections = faceapi.resizeResults(detections, displaySize);
+                        faceapi.draw.drawDetections(canvas, resizedDetections);
+                    }
+                    
+                    const faceCount = detections.length;
+                    document.getElementById('faceCountNumber').textContent = faceCount;
+                    
+                    // Update status based on face count
+                    const warningDiv = document.getElementById('faceWarning');
+                    const successDiv = document.getElementById('faceSuccess');
+                    
+                    if (faceCount === 0) {
+                        warningDiv.style.display = 'block';
+                        successDiv.style.display = 'none';
+                        document.getElementById('warningMessage').innerHTML = 'No faces detected. Please position yourself in front of the camera.';
+                        document.getElementById('nextFromWebcam').disabled = true;
+                        
+                        if (detectionCount % 5 === 0) { // Log every 5th detection to avoid spam
+                            logSuspiciousActivity('Face detection: No face detected');
+                        }
+                        
+                    } else if (faceCount === 1) {
+                        warningDiv.style.display = 'none';
+                        successDiv.style.display = 'block';
+                        document.getElementById('nextFromWebcam').disabled = false;
+                        markStepComplete(2);
+                        
+                    } else if (faceCount > 1) {
+                        warningDiv.style.display = 'block';
+                        successDiv.style.display = 'none';
+                        document.getElementById('warningMessage').innerHTML = `${faceCount} people detected! Only ONE person is allowed. Please ask others to leave.`;
+                        document.getElementById('nextFromWebcam').disabled = true;
+                        
+                        if (detectionCount % 5 === 0) { // Log every 5th detection to avoid spam
+                            logSuspiciousActivity(`Face detection: Multiple people detected (${faceCount})`);
+                        }
+                    }
+                } catch (err) {
+                    console.error('❌ Face detection error:', err);
+                    document.getElementById('webcamStatus').innerHTML = '⚠️ Face detection error: ' + err.message;
+                }
+            }, 1000); // Check every 1 second
+        }
+
+        // Start webcam when entering step 2
+        document.getElementById('nextFromMic').addEventListener('click', () => {
+            setTimeout(startWebcamTest, 300);
+        });
+
+        document.getElementById('backFromWebcam').addEventListener('click', () => {
+            if (faceDetectionInterval) clearInterval(faceDetectionInterval);
+            goToStep(1);
+        });
+        
+        document.getElementById('nextFromWebcam').addEventListener('click', () => {
+            if (faceDetectionInterval) clearInterval(faceDetectionInterval);
+            goToStep(3);
+        });
+
+        // ==========================================
+        // STEP 3: RULES ACCEPTANCE
+        // ==========================================
+        document.getElementById('acceptRules').addEventListener('change', (e) => {
+            document.getElementById('nextFromRules').disabled = !e.target.checked;
+            if (e.target.checked) {
+                markStepComplete(3);
+            }
+        });
+
+        document.getElementById('backFromRules').addEventListener('click', () => {
+            // Stop webcam when going back
+            if (window.webcamStream) {
+                window.webcamStream.getTracks().forEach(track => track.stop());
+            }
+            goToStep(2);
+        });
+
+        document.getElementById('nextFromRules').addEventListener('click', () => goToStep(4));
+
+        // ==========================================
+        // STEP 4: START EXAM
+        // ==========================================
+        document.getElementById('backFromExam').addEventListener('click', () => goToStep(3));
+
+        document.getElementById('startExam').addEventListener('click', () => {
+            markStepComplete(4);
+            startProctorExam();
+        });
+
+        // ==========================================
+        // PROCTORING CONTROLS
+        // ==========================================
+        function startProctorExam() {
+            // Enter fullscreen
+            const iframeContainer = document.getElementById('examIframeContainer');
+            const elem = document.documentElement;
+            
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen().catch(() => {
+                    alert('Could not enter fullscreen. Please try again.');
+                    return;
+                });
+            }
+            
+            // Show exam iframe
+            document.querySelector('.step-indicator').style.display = 'none';
+            document.querySelectorAll('.step-content').forEach(el => el.style.display = 'none');
+            iframeContainer.style.display = 'block';
+            
+            // Start proctoring
+            startProctoring();
+        }
+
+        // ==========================================
+        // LIVE WEBCAM FEED DURING EXAM
+        // ==========================================
+        async function startLiveWebcamFeed() {
+            try {
+                const video = document.getElementById('liveWebcamFeed');
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'user'
+                    }
+                });
+                video.srcObject = stream;
+                window.liveWebcamStream = stream;
+                
+                // Mobile detection
+                detectMobileDevice();
+                
+                console.log('✅ Live webcam feed started');
+            } catch (err) {
+                console.error('❌ Webcam error:', err);
+                document.getElementById('liveWebcamFeed').style.background = '#ff0000';
+            }
+        }
+
+        // ==========================================
+        // MOBILE DEVICE DETECTION
+        // ==========================================
+        function detectMobileDevice() {
+            const userAgent = navigator.userAgent.toLowerCase();
+            const isMobile = /mobile|tablet|android|iphone|ipad|ipod|blackberry|windows phone|opera mini|opera mobi/.test(userAgent);
+            
+            // Check screen size
+            const isSmallScreen = window.innerWidth < 768;
+            
+            // Check for touch device
+            const isTouchDevice = () => {
+                return (('ontouchstart' in window) ||
+                        (navigator.maxTouchPoints > 0) ||
+                        (navigator.msMaxTouchPoints > 0));
+            };
+            
+            if (isMobile || isSmallScreen || isTouchDevice()) {
+                document.getElementById('mobileAlert').style.display = 'block';
+                logSuspiciousActivity('Mobile/small screen device detected');
+            }
+        }
+
+        // ==========================================
+        // EXAM TIMER
+        // ==========================================
+        function startExamTimer() {
+            let examStartTime = new Date();
+            
+            setInterval(() => {
+                let now = new Date();
+                let elapsed = Math.floor((now - examStartTime) / 1000);
+                
+                let hours = Math.floor(elapsed / 3600);
+                let minutes = Math.floor((elapsed % 3600) / 60);
+                let seconds = elapsed % 60;
+                
+                let timeStr = String(hours).padStart(2, '0') + ':' + 
+                              String(minutes).padStart(2, '0') + ':' + 
+                              String(seconds).padStart(2, '0');
+                
+                document.getElementById('elapsedTime').textContent = timeStr;
+                document.getElementById('examTime').textContent = timeStr;
+            }, 1000);
+        }
+
+        // ==========================================
+        // SPLIT-SCREEN EXAM FUNCTIONALITY
+        // ==========================================
+        
+        function attachExamEventListeners() {
+            console.log('📌 Attaching event listeners to exam elements...');
+            
+            // QUESTION NAVIGATION (Left Panel)
+            const questionTabs = document.querySelectorAll('.question-tab');
+            console.log(`Found ${questionTabs.length} question tabs`);
+            
+            questionTabs.forEach((tab, index) => {
+                tab.addEventListener('click', function(e) {
+                    console.log(`✅ Question tab ${index + 1} clicked!`);
+                    const questionNum = this.getAttribute('data-question');
+                    
+                    // Update tab styles
+                    document.querySelectorAll('.question-tab').forEach(t => {
+                        t.style.background = '#f8f9fa';
+                        t.style.color = '#666';
+                        t.style.border = '1px solid #e0e0e0';
+                    });
+                    this.style.background = '#1a73e8';
+                    this.style.color = 'white';
+                    this.style.border = 'none';
+                    
+                    // Show selected question
+                    document.querySelectorAll('.question-content').forEach(q => {
+                        q.style.display = 'none';
+                    });
+                    const selectedQuestion = document.querySelector(`.question-content[data-question="${questionNum}"]`);
+                    if (selectedQuestion) {
+                        selectedQuestion.style.display = 'block';
+                        console.log(`Switched to Question ${questionNum}`);
+                    } else {
+                        console.error(`Question ${questionNum} not found!`);
+                    }
+                    
+                    logSuspiciousActivity('Switched to Question ' + questionNum, false);
+                });
+            });
+        }
+
+        // ATTACH THESE IMMEDIATELY (They work fine on page load)
+        // OUTPUT PANEL TABS (Right Panel Bottom)
+        document.querySelectorAll('.output-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                const tabName = this.getAttribute('data-tab');
+                
+                // Update tab styles
+                document.querySelectorAll('.output-tab').forEach(t => {
+                    t.style.color = '#858585';
+                    t.style.borderBottom = '2px solid transparent';
+                });
+                this.style.color = '#cccccc';
+                this.style.borderBottom = '2px solid #0078d4';
+                
+                // Show selected panel
+                document.querySelectorAll('.output-panel').forEach(p => {
+                    p.style.display = 'none';
+                });
+                document.getElementById(tabName === 'console' ? 'consoleOutput' : 'testCasesOutput').style.display = 'block';
+            });
+        });
+
+        // Helper: toggle advanced skeleton for output
+        function setOutputSkeleton(active) {
+            const skeleton = document.getElementById('outputSkeleton');
+            if (!skeleton) return;
+            skeleton.style.display = active ? 'block' : 'none';
+        }
+
+        // RUN CODE BUTTON
+        document.getElementById('runCodeBtn').addEventListener('click', function() {
+            const code = document.getElementById('codeEditor').value;
+            const language = document.getElementById('languageSelect').value;
+            const consoleOutput = document.getElementById('consoleOutput');
+
+            // Show skeleton and clear previous output
+            setOutputSkeleton(true);
+            consoleOutput.innerHTML = '<div style="color: #4ec9b0;">▶ Running ' + language + ' code...</div><br>';
+            
+            logSuspiciousActivity('Code execution initiated - ' + language);
+            
+            try {
+                if (language === 'python') {
+                    // Simulate Python execution (in production, send to backend)
+                    setTimeout(() => {
+                        consoleOutput.innerHTML += '<div style="color: #ce9178;">Output:</div><div>[0, 1]</div><br><div style="color: #6a9955;">✓ Executed in 45ms</div>';
+                        setOutputSkeleton(false);
+                    }, 500);
+                    
+                } else if (language === 'javascript') {
+                    // Simple JavaScript eval (in real exam, send to backend)
+                    let output = '';
+                    const originalLog = console.log;
+                    console.log = function(...args) {
+                        output += args.join(' ') + '\n';
+                    };
+                    
+                    try {
+                        eval(code);
+                        console.log = originalLog;
+                        consoleOutput.innerHTML += '<div style="color: #ce9178;">Output:</div><div>' + (output || 'Code executed successfully') + '</div>';
+                        setOutputSkeleton(false);
+                    } catch (err) {
+                        console.log = originalLog;
+                        throw err;
+                    }
+                }
+            } catch (err) {
+                consoleOutput.innerHTML += '<div style="color: #f48771;">❌ Error: ' + err.message + '</div>';
+                setOutputSkeleton(false);
+            }
+            
+            // Auto-switch to console tab
+            document.querySelectorAll('.output-tab').forEach(t => {
+                t.style.color = '#858585';
+                t.style.borderBottom = '2px solid transparent';
+            });
+            document.querySelector('.output-tab[data-tab="console"]').style.color = '#cccccc';
+            document.querySelector('.output-tab[data-tab="console"]').style.borderBottom = '2px solid #0078d4';
+            document.querySelectorAll('.output-panel').forEach(p => p.style.display = 'none');
+            consoleOutput.style.display = 'block';
+        });
+
+        // SUBMIT CODE BUTTON
+        document.getElementById('submitCodeBtn').addEventListener('click', function() {
+            const code = document.getElementById('codeEditor').value;
+            const language = document.getElementById('languageSelect').value;
+            
+            if (code.trim().length === 0) {
+                alert('⚠️ Please write some code before submitting');
+                return;
+            }
+            
+            // Show skeleton while "evaluating" test cases
+            setOutputSkeleton(true);
+
+            // Show test results (simulated delay for better UX)
+            const testCasesOutput = document.getElementById('testCasesOutput');
+            testCasesOutput.innerHTML = `
+                <div style="margin-bottom: 15px;">
+                    <div style="background: #1e3a1e; border-left: 3px solid #4ec9b0; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
+                        <div style="color: #4ec9b0; font-weight: 600;">✓ Test Case 1: Passed</div>
+                        <div style="color: #858585; font-size: 0.85rem; margin-top: 5px;">Input: nums = [2,7,11,15], target = 9</div>
+                        <div style="color: #cccccc; font-size: 0.85rem;">Expected: [0,1] | Got: [0,1]</div>
+                    </div>
+                    <div style="background: #1e3a1e; border-left: 3px solid #4ec9b0; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
+                        <div style="color: #4ec9b0; font-weight: 600;">✓ Test Case 2: Passed</div>
+                        <div style="color: #858585; font-size: 0.85rem; margin-top: 5px;">Input: nums = [3,2,4], target = 6</div>
+                        <div style="color: #cccccc; font-size: 0.85rem;">Expected: [1,2] | Got: [1,2]</div>
+                    </div>
+                    <div style="background: #3a1e1e; border-left: 3px solid #f48771; padding: 10px; border-radius: 4px;">
+                        <div style="color: #f48771; font-weight: 600;">✗ Test Case 3: Failed</div>
+                        <div style="color: #858585; font-size: 0.85rem; margin-top: 5px;">Input: nums = [3,3], target = 6</div>
+                        <div style="color: #cccccc; font-size: 0.85rem;">Expected: [0,1] | Got: null</div>
+                    </div>
+                </div>
+                <div style="border-top: 1px solid #3e3e42; padding-top: 10px; color: #cccccc;">
+                    <strong>Score:</strong> 2/3 test cases passed (66.7%)
+                </div>
+            `;
+            
+            // Auto-switch to test cases tab
+            document.querySelectorAll('.output-tab').forEach(t => {
+                t.style.color = '#858585';
+                t.style.borderBottom = '2px solid transparent';
+            });
+            document.querySelector('.output-tab[data-tab="testcases"]').style.color = '#cccccc';
+            document.querySelector('.output-tab[data-tab="testcases"]').style.borderBottom = '2px solid #0078d4';
+            document.querySelectorAll('.output-panel').forEach(p => p.style.display = 'none');
+
+            // Slight delay to let skeleton be visible
+            setTimeout(() => {
+                testCasesOutput.style.display = 'block';
+                setOutputSkeleton(false);
+            }, 400);
+
+            logSuspiciousActivity('Code submitted - ' + language, false);
+        });
+
+        // ==========================================
+        // MCQ vs CODING TAB SWITCHING
+        // ==========================================
+        document.getElementById('mcqMainTab').addEventListener('click', function() {
+            console.log('📋 Switching to MCQ section');
+            // Show MCQ section
+            document.getElementById('mcqMainSection').style.display = 'block';
+            document.getElementById('codingMainSection').style.display = 'none';
+            
+            // Update tab styles
+            this.style.background = '#1a73e8';
+            this.style.color = 'white';
+            document.getElementById('codingMainTab').style.background = '#f8f9fa';
+            document.getElementById('codingMainTab').style.color = '#666';
+            
+            logSuspiciousActivity('Switched to MCQ section', false);
+        });
+
+        document.getElementById('codingMainTab').addEventListener('click', function() {
+            console.log('💻 Switching to Coding section');
+            // Show Coding section
+            document.getElementById('mcqMainSection').style.display = 'none';
+            document.getElementById('codingMainSection').style.display = 'flex';
+            
+            // Update tab styles
+            this.style.background = '#1a73e8';
+            this.style.color = 'white';
+            document.getElementById('mcqMainTab').style.background = '#f8f9fa';
+            document.getElementById('mcqMainTab').style.color = '#666';
+            
+            logSuspiciousActivity('Switched to Coding section', false);
+        });
+
+        // "Proceed to Coding" button
+        document.getElementById('proceedToCodingBtn').addEventListener('click', function() {
+            console.log('➡️ Proceeding to coding section');
+            document.getElementById('codingMainTab').click(); // Trigger coding tab
+        });
+
+        // ==========================================
+        // SUBMIT EXAM HANDLER
+        // ==========================================
+        document.getElementById('submitExamBtn').addEventListener('click', function() {
+            const code = document.getElementById('codeEditor').value;
+            const language = document.getElementById('languageSelect').value;
+            
+            if (code.trim().length === 0 || code.includes('# Write your solution here')) {
+                if (!confirm('⚠️ Your code appears incomplete. Are you sure you want to submit?')) {
+                    return;
+                }
+            }
+
+            // Final confirmation
+            if (!confirm('📝 Submit your exam now?\n\nOnce submitted, you cannot make further changes.')) {
+                return;
+            }
+
+            // Log exam submission
+            logSuspiciousActivity('EXAM SUBMITTED - Language: ' + language + ', Code length: ' + code.length + ' chars');
+            
+            // Disable submit button
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+            this.style.background = '#999';
+            
+            // Simulate submission (in production, send to backend)
+            setTimeout(() => {
+                alert('✅ Exam submitted successfully!\n\nYour code has been recorded and will be evaluated.\n\nYou will be redirected to the dashboard.');
+                
+                // Stop proctoring
+                if (window.liveWebcamStream) {
+                    window.liveWebcamStream.getTracks().forEach(track => track.stop());
+                }
+                if (examFaceDetectionInterval) {
+                    clearInterval(examFaceDetectionInterval);
+                }
+                
+                // Redirect to dashboard
+                setTimeout(() => {
+                    window.location.href = '/student-dashboard/';
+                }, 2000);
+            }, 1500);
+        });
+
+        // ==========================================
+        // CONTINUOUS FACE DETECTION DURING EXAM
+        // ==========================================
+        function startContinuousFaceMonitoring() {
+            if (examFaceDetectionInterval) clearInterval(examFaceDetectionInterval);
+            
+            let consecutiveNoFace = 0;
+            let consecutiveMultipleFaces = 0;
+            
+            examFaceDetectionInterval = setInterval(async () => {
+                if (examBlocked) return;
+                
+                try {
+                    const video = document.getElementById('liveWebcamFeed');
+                    
+                    if (typeof faceapi !== 'undefined' && video.readyState === video.HAVE_ENOUGH_DATA) {
+                        const detections = await faceapi.detectAllFaces(video,
+                            new faceapi.TinyFaceDetectorOptions());
+                        
+                        const faceCount = detections.length;
+                        
+                        if (faceCount === 0) {
+                            consecutiveNoFace++;
+                            consecutiveMultipleFaces = 0;
+                            
+                            // INCREASED THRESHOLD: Now requires 5 consecutive checks (10 seconds) instead of 2 (4 seconds)
+                            if (consecutiveNoFace >= 5) {
+                                // No face detected - camera closed or student out of view
+                                logSuspiciousActivity('CRITICAL: No face detected for 10 seconds - camera blocked or student not visible', true);
+                                showAntiCheatWarning('❌ CAMERA BLOCKED: No face detected for 10 seconds. Please ensure camera is on and you are visible.');
+                                consecutiveNoFace = 0; // Reset after logging
+                            }
+                            
+                        } else if (faceCount > 1) {
+                            consecutiveMultipleFaces++;
+                            consecutiveNoFace = 0;
+                            
+                            // INCREASED THRESHOLD: Now requires 5 consecutive checks (10 seconds)
+                            if (consecutiveMultipleFaces >= 5) {
+                                // Multiple faces detected
+                                logSuspiciousActivity(`CRITICAL: Multiple people detected (${faceCount} faces) for 10 seconds - unauthorized assistance`, true);
+                                showAntiCheatWarning(`❌ MULTIPLE PEOPLE DETECTED: ${faceCount} people found for 10 seconds. Only you are allowed.`);
+                                consecutiveMultipleFaces = 0; // Reset after logging
+                            }
+                        } else {
+                            // Exactly 1 face - normal
+                            consecutiveNoFace = 0;
+                            consecutiveMultipleFaces = 0;
+                        }
+                        
+                    }
+                } catch (err) {
+                    // Silently fail - face detection might not be available
+                }
+            }, 2000); // Check every 2 seconds
+        }
+
+        // ==========================================
+        // ANTI-CHEAT MEASURES WITH VIOLATION TRACKING
+        // ==========================================
+        let examFaceDetectionInterval = null;
+        let suspiciousActivityCount = 0;
+        let examBlocked = false;
+        const MAX_VIOLATIONS = 10; // INCREASED from 3 to 10 for better usability during testing
+        let lastMouseActivity = Date.now();
+        let mouseInactivityWarned = false;
+        
+        function startProctoring() {
+            console.log('🎯 Starting proctoring and attaching event listeners...');
+            
+            // Start live webcam feed
+            startLiveWebcamFeed();
+            
+            // Start timer
+            startExamTimer();
+            
+            // ATTACH EVENT LISTENERS FOR EXAM INTERACTIONS (Must be after exam is shown!)
+            attachExamEventListeners();
+            
+            // START CONTINUOUS FACE DETECTION DURING EXAM
+            startContinuousFaceMonitoring();
+            
+            // START ADVANCED PROCTORING
+            startMouseTracking();
+            startHeadPoseDetection();
+            startObjectDetection();
+            
+            // 1. PREVENT DEVELOPER TOOLS
+            preventDevTools();
+            
+            // 2. MONITOR TAB VISIBILITY
+            monitorTabSwitch();
+            
+            // 3. MONITOR FULLSCREEN
+            monitorFullscreen();
+            
+            // 4. DISABLE CONTEXT MENU & RIGHT CLICK
+            document.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                logSuspiciousActivity('Right-click attempted');
+                return false;
+            });
+            
+            // 5. BLOCK COPY/PASTE
+            document.addEventListener('copy', (e) => {
+                e.preventDefault();
+                logSuspiciousActivity('Copy attempt blocked');
+            });
+            
+            document.addEventListener('paste', (e) => {
+                e.preventDefault();
+                logSuspiciousActivity('Paste attempt blocked');
+            });
+
+            // 6. DISABLE KEYBOARD SHORTCUTS
+            document.addEventListener('keydown', (e) => {
+                // Ctrl+A (Select All) - Allow but log
+                if (e.ctrlKey && e.key === 'a') {
+                    logSuspiciousActivity('Ctrl+A (Select All) attempted');
+                }
+                // Ctrl+S (Save) - Prevent
+                if (e.ctrlKey && e.key === 's') {
+                    e.preventDefault();
+                    logSuspiciousActivity('Ctrl+S (Save) blocked');
+                }
+            });
+
+            console.log('🔒 Proctoring system active with live webcam feed');
+        }
+
+        function preventDevTools() {
+            // F12
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'F12') {
+                    e.preventDefault();
+                    logSuspiciousActivity('F12 pressed');
+                    return false;
+                }
+                
+                // Ctrl+Shift+I (Inspect)
+                if (e.ctrlKey && e.shiftKey && e.key === 'I') {
+                    e.preventDefault();
+                    logSuspiciousActivity('Ctrl+Shift+I pressed');
+                    return false;
+                }
+                
+                // Ctrl+Shift+C (Inspect Element)
+                if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+                    e.preventDefault();
+                    logSuspiciousActivity('Ctrl+Shift+C pressed');
+                    return false;
+                }
+                
+                // Ctrl+Shift+J (Console)
+                if (e.ctrlKey && e.shiftKey && e.key === 'J') {
+                    e.preventDefault();
+                    logSuspiciousActivity('Ctrl+Shift+J pressed');
+                    return false;
+                }
+            });
+        }
+
+        function monitorTabSwitch() {
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    logSuspiciousActivity('CRITICAL: Tab switch detected - student left exam tab', true);
+                    showAntiCheatWarning('⚠️ Tab Switch Detected - Stay on exam tab!');
+                } else {
+                    logSuspiciousActivity('Tab switch: Student returned to exam tab', false);
+                }
+            });
+
+            // Also monitor window focus
+            window.addEventListener('blur', () => {
+                logSuspiciousActivity('CRITICAL: Window focus lost - possible external application usage', true);
+                showAntiCheatWarning('⚠️ Stay focused on exam window!');
+            });
+
+            window.addEventListener('focus', () => {
+                logSuspiciousActivity('Window focus regained', false);
+            });
+        }
+
+        function monitorFullscreen() {
+            document.addEventListener('fullscreenchange', () => {
+                if (!document.fullscreenElement) {
+                    logSuspiciousActivity('WARNING: Exited fullscreen mode', false);
+                    showAntiCheatWarning('⚠️ Fullscreen Exit Detected');
+                }
+            });
+        }
+
+        function showAntiCheatWarning(message) {
+            const warning = document.getElementById('antiCheatWarning');
+            warning.textContent = '⚠️ ' + message;
+            warning.style.display = 'block';
+            
+            setTimeout(() => {
+                warning.style.display = 'none';
+            }, 3000);
+        }
+
+        function logSuspiciousActivity(activity, isCritical = false) {
+            console.log('[PROCTOR]', activity, new Date().toLocaleTimeString());
+            
+            // Increment violation counter for critical activities
+            if (isCritical && !examBlocked) {
+                suspiciousActivityCount++;
+                console.log(`⚠️ VIOLATION ${suspiciousActivityCount}/${MAX_VIOLATIONS}: ${activity}`);
+                
+                // Update violation counter display
+                updateViolationCounter();
+                
+                // Check if exam should be blocked
+                if (suspiciousActivityCount >= MAX_VIOLATIONS) {
+                    blockExam();
+                    return;
+                }
+            }
+            
+            // Send to backend
+            fetch('{% url "report_event" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    event_type: isCritical ? 'critical_violation' : 'suspicious_activity',
+                    description: activity,
+                    timestamp: new Date().toISOString(),
+                    violation_count: suspiciousActivityCount
+                })
+            }).then(response => {
+                if (response.ok) {
+                    console.log('✅ Event logged successfully');
+                } else {
+                    response.json().then(data => {
+                        console.error('❌ Failed to log event:', data.error);
+                    });
+                }
+            }).catch(err => console.error('Failed to log event:', err));
+        }
+        
+        // ==========================================
+        // VIOLATION COUNTER & EXAM BLOCKING
+        // ==========================================
+        function updateViolationCounter() {
+            // Update header counter
+            const violationCountDisplay = document.getElementById('violationCountDisplay');
+            const violationCounter = document.getElementById('violationCounter');
+            
+            if (violationCountDisplay) {
+                violationCountDisplay.textContent = `${suspiciousActivityCount}/${MAX_VIOLATIONS}`;
+                
+                // Change color based on severity
+                if (suspiciousActivityCount === 1) {
+                    violationCounter.style.background = '#fff3cd';
+                    violationCounter.style.borderColor = '#ffc107';
+                    violationCountDisplay.style.color = '#ff9800';
+                } else if (suspiciousActivityCount === 2) {
+                    violationCounter.style.background = '#ffe5e5';
+                    violationCounter.style.borderColor = '#ff6b6b';
+                    violationCountDisplay.style.color = '#dc3545';
+                } else if (suspiciousActivityCount >= 3) {
+                    violationCounter.style.background = '#ff4444';
+                    violationCounter.style.borderColor = '#cc0000';
+                    violationCountDisplay.style.color = '#ffffff';
+                }
+            }
+            
+            // Update alert message
+            const suspiciousAlert = document.getElementById('suspiciousActivityAlert');
+            if (suspiciousAlert) {
+                const remaining = MAX_VIOLATIONS - suspiciousActivityCount;
+                suspiciousAlert.innerHTML = `
+                    <i class="fas fa-exclamation-triangle"></i> 
+                    <strong>⚠️ WARNING ${suspiciousActivityCount}/${MAX_VIOLATIONS}:</strong> 
+                    Suspicious activity detected! ${remaining} warning${remaining !== 1 ? 's' : ''} remaining before exam is blocked.
+                `;
+                suspiciousAlert.style.display = 'block';
+                suspiciousAlert.style.background = suspiciousActivityCount >= 2 ? '#ffebee' : '#fff3cd';
+                suspiciousAlert.style.borderLeft = suspiciousActivityCount >= 2 ? '4px solid #dc3545' : '4px solid #ff9800';
+                
+                // Scroll to alert
+                suspiciousAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+        
+        function blockExam() {
+            if (examBlocked) return;
+            
+            examBlocked = true;
+            console.error('🚫 EXAM BLOCKED: Maximum violations reached');
+            
+            // Stop all proctoring
+            if (examFaceDetectionInterval) clearInterval(examFaceDetectionInterval);
+            if (window.liveWebcamStream) {
+                window.liveWebcamStream.getTracks().forEach(track => track.stop());
+            }
+            
+            // Log final violation
+            fetch('{% url "report_event" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    event_type: 'exam_blocked',
+                    description: 'EXAM BLOCKED: Maximum violations exceeded',
+                    timestamp: new Date().toISOString(),
+                    violation_count: suspiciousActivityCount
+                })
+            });
+            
+            // Create blocking overlay
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(220, 53, 69, 0.95);
+                z-index: 99999;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-family: 'Poppins', sans-serif;
+            `;
+            
+            overlay.innerHTML = `
+                <div style="text-align: center; max-width: 600px; padding: 40px;">
+                    <i class="fas fa-ban" style="font-size: 5rem; margin-bottom: 30px; animation: pulse 2s infinite;"></i>
+                    <h1 style="font-size: 2.5rem; margin-bottom: 20px; font-weight: 700;">EXAM BLOCKED</h1>
+                    <h2 style="font-size: 1.5rem; margin-bottom: 30px; font-weight: 600;">Maximum Violations Exceeded</h2>
+                    <div style="background: rgba(255,255,255,0.2); padding: 20px; border-radius: 10px; margin-bottom: 30px;">
+                        <p style="font-size: 1.2rem; line-height: 1.8; margin: 0;">
+                            Your exam has been blocked due to <strong>${suspiciousActivityCount} suspicious activities</strong> detected:
+                        </p>
+                        <ul style="text-align: left; margin: 20px auto; max-width: 400px; font-size: 1rem; line-height: 1.8;">
+                            <li>Looking away from screen</li>
+                            <li>Using mobile phone or notes</li>
+                            <li>Multiple people detected</li>
+                            <li>Mouse leaving exam area</li>
+                            <li>Camera obstruction</li>
+                        </ul>
+                    </div>
+                    <p style="font-size: 1.1rem; line-height: 1.6; margin-bottom: 20px;">
+                        All activities have been recorded and logged.<br>
+                        Please contact your exam administrator.
+                    </p>
+                    <div style="margin-top: 30px;">
+                        <button onclick="window.location.href='/student-dashboard/'" 
+                                style="background: white; color: #dc3545; padding: 15px 40px; border: none; 
+                                       border-radius: 8px; font-size: 1.1rem; font-weight: 700; cursor: pointer;
+                                       box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                            Return to Dashboard
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(overlay);
+            
+            // Disable all exam interactions
+            document.getElementById('codeEditor').disabled = true;
+            document.getElementById('runCodeBtn').disabled = true;
+            document.getElementById('submitCodeBtn').disabled = true;
+            document.getElementById('submitExamBtn').disabled = true;
+            
+            // Show alert
+            setTimeout(() => {
+                alert('🚫 EXAM BLOCKED\n\nYou have exceeded the maximum number of violations (3).\n\nYour exam has been terminated and all activities have been logged.\n\nPlease contact your exam administrator.');
+            }, 500);
+        }
+
+        // ==========================================
+        // MOUSE TRACKING & INACTIVITY DETECTION (FIXED - LESS AGGRESSIVE)
+        // ==========================================
+        function startMouseTracking() {
+            let windowLeaveCount = 0;
+            let windowLeaveTime = null;
+            
+            // Track mouse movement - just update activity time
+            document.addEventListener('mousemove', (e) => {
+                lastMouseActivity = Date.now();
+                mouseInactivityWarned = false;
+            });
+            
+            // Only track when mouse COMPLETELY leaves the browser window
+            // This is less aggressive and won't interfere with normal exam interactions
+            document.addEventListener('mouseleave', () => {
+                if (!examBlocked) {
+                    windowLeaveTime = Date.now();
+                    windowLeaveCount++;
+                    
+                    // Only log as suspicious after 3 times leaving window
+                    if (windowLeaveCount >= 3) {
+                        logSuspiciousActivity('WARNING: Mouse left window ' + windowLeaveCount + ' times - possible external tool usage', false);
+                        showAntiCheatWarning('⚠️ Mouse left exam window ' + windowLeaveCount + ' times');
+                    }
+                    
+                    // Only count as CRITICAL violation if left for more than 5 seconds
+                    setTimeout(() => {
+                        if (windowLeaveTime && (Date.now() - windowLeaveTime) > 5000) {
+                            logSuspiciousActivity('CRITICAL: Mouse left window for extended period', true);
+                        }
+                    }, 5000);
+                }
+            });
+            
+            // Reset counter when mouse returns
+            document.addEventListener('mouseenter', () => {
+                windowLeaveTime = null;
+            });
+            
+            // Check for mouse inactivity (very lenient - 2 minutes)
+            setInterval(() => {
+                const inactiveTime = Date.now() - lastMouseActivity;
+                if (inactiveTime > 120000 && !mouseInactivityWarned && !examBlocked) { // 2 minutes (was 30 seconds)
+                    mouseInactivityWarned = true;
+                    logSuspiciousActivity('INFO: No mouse activity for 2 minutes', false);
+                }
+            }, 30000); // Check every 30 seconds instead of 5
+            
+            console.log('🖱️ Mouse tracking enabled (lenient mode)');
+        }
+        
+        // ==========================================
+        // HEAD POSE DETECTION (Looking Away/Down)
+        // ==========================================
+        function startHeadPoseDetection() {
+            let consecutiveLookAways = 0;
+            const LOOK_AWAY_THRESHOLD = 3; // 3 consecutive detections
+            
+            setInterval(async () => {
+                if (examBlocked) return;
+                
+                try {
+                    const video = document.getElementById('liveWebcamFeed');
+                    
+                    if (typeof faceapi !== 'undefined' && video.readyState === video.HAVE_ENOUGH_DATA) {
+                        // Detect face with landmarks
+                        const detections = await faceapi.detectSingleFace(video,
+                            new faceapi.TinyFaceDetectorOptions())
+                            .withFaceLandmarks();
+                        
+                        if (detections) {
+                            const landmarks = detections.landmarks;
+                            
+                            // Get key facial points
+                            const nose = landmarks.getNose();
+                            const leftEye = landmarks.getLeftEye();
+                            const rightEye = landmarks.getRightEye();
+                            const mouth = landmarks.getMouth();
+                            
+                            if (nose.length > 0 && leftEye.length > 0 && rightEye.length > 0) {
+                                // Calculate head orientation
+                                const noseY = nose[0].y;
+                                const eyeCenterY = (leftEye[0].y + rightEye[0].y) / 2;
+                                const mouthY = mouth.length > 0 ? mouth[0].y : noseY + 50;
+                                
+                                // Check if looking down (nose significantly below eyes)
+                                const lookingDown = (noseY - eyeCenterY) > 40;
+                                
+                                // Check if looking away (face position relative to center)
+                                const videoCenter = video.offsetWidth / 2;
+                                const faceCenter = (leftEye[0].x + rightEye[0].x) / 2;
+                                const horizontalDeviation = Math.abs(faceCenter - videoCenter);
+                                const lookingAway = horizontalDeviation > video.offsetWidth * 0.3; // 30% deviation
+                                
+                                if (lookingDown || lookingAway) {
+                                    consecutiveLookAways++;
+                                    
+                                    if (consecutiveLookAways >= LOOK_AWAY_THRESHOLD) {
+                                        const direction = lookingDown ? 'DOWN' : 'AWAY';
+                                        logSuspiciousActivity(`CRITICAL: Student looking ${direction} - possible cheating (notes/phone)`, true);
+                                        showAntiCheatWarning(`⚠️ Looking ${direction} detected! Keep eyes on screen.`);
+                                        consecutiveLookAways = 0; // Reset after logging
+                                    }
+                                } else {
+                                    consecutiveLookAways = 0; // Reset if looking at screen
+                                }
+                            }
+                        } else {
+                            // No face detected - already handled by face monitoring
+                            consecutiveLookAways = 0;
+                        }
+                    }
+                } catch (err) {
+                    console.log('Head pose detection error:', err.message);
+                }
+            }, 2000); // Check every 2 seconds
+            
+            console.log('👁️ Head pose detection enabled');
+        }
+        
+        // ==========================================
+        // OBJECT DETECTION (Mobile Phone, Notes, etc.)
+        // ==========================================
+        function startObjectDetection() {
+            // Using COCO-SSD model for object detection (if available)
+            // This detects objects like cell phones, books, etc.
+            
+            let consecutivePhoneDetections = 0;
+            const PHONE_DETECTION_THRESHOLD = 2;
+            
+            // Check if cocoSsd is available (you'll need to include it)
+            if (typeof cocoSsd === 'undefined') {
+                console.log('📱 Object detection not available (cocoSsd not loaded)');
+                // Fallback: Use motion detection for suspicious activity
+                startMotionDetection();
+                return;
+            }
+            
+            cocoSsd.load().then(model => {
+                setInterval(async () => {
+                    if (examBlocked) return;
+                    
+                    try {
+                        const video = document.getElementById('liveWebcamFeed');
+                        
+                        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                            const predictions = await model.detect(video);
+                            
+                            // Check for suspicious objects
+                            const suspiciousObjects = predictions.filter(pred => 
+                                pred.class === 'cell phone' || 
+                                pred.class === 'book' ||
+                                pred.class === 'laptop' ||
+                                pred.class === 'tablet'
+                            );
+                            
+                            if (suspiciousObjects.length > 0) {
+                                consecutivePhoneDetections++;
+                                
+                                if (consecutivePhoneDetections >= PHONE_DETECTION_THRESHOLD) {
+                                    const objectTypes = suspiciousObjects.map(o => o.class).join(', ');
+                                    logSuspiciousActivity(`CRITICAL: Unauthorized objects detected: ${objectTypes}`, true);
+                                    showAntiCheatWarning(`⚠️ Unauthorized device detected: ${objectTypes}!`);
+                                    consecutivePhoneDetections = 0;
+                                }
+                            } else {
+                                consecutivePhoneDetections = 0;
+                            }
+                        }
+                    } catch (err) {
+                        console.log('Object detection error:', err.message);
+                    }
+                }, 3000); // Check every 3 seconds
+                
+                console.log('📱 Object detection enabled');
+            }).catch(err => {
+                console.log('Failed to load object detection:', err);
+                startMotionDetection(); // Fallback
+            });
+        }
+        
+        // ==========================================
+        // MOTION DETECTION (Fallback)
+        // ==========================================
+        function startMotionDetection() {
+            let previousFrame = null;
+            let consecutiveHighMotion = 0;
+            
+            setInterval(async () => {
+                if (examBlocked) return;
+                
+                try {
+                    const video = document.getElementById('liveWebcamFeed');
+                    
+                    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                        // Create temporary canvas for motion detection
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 160;
+                        canvas.height = 120;
+                        const ctx = canvas.getContext('2d');
+                        
+                        // Draw current frame
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        const currentFrame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        
+                        if (previousFrame) {
+                            // Calculate motion difference
+                            let motionPixels = 0;
+                            for (let i = 0; i < currentFrame.data.length; i += 4) {
+                                const diff = Math.abs(currentFrame.data[i] - previousFrame.data[i]);
+                                if (diff > 30) motionPixels++;
+                            }
+                            
+                            const motionPercentage = (motionPixels / (canvas.width * canvas.height)) * 100;
+                            
+                            // High motion might indicate suspicious activity
+                            if (motionPercentage > 20) {
+                                consecutiveHighMotion++;
+                                
+                                if (consecutiveHighMotion >= 3) {
+                                    logSuspiciousActivity('WARNING: High motion detected - possible suspicious activity', false);
+                                    consecutiveHighMotion = 0;
+                                }
+                            } else {
+                                consecutiveHighMotion = 0;
+                            }
+                        }
+                        
+                        previousFrame = currentFrame;
+                    }
+                } catch (err) {
+                    console.log('Motion detection error:', err.message);
+                }
+            }, 4000); // Check every 4 seconds
+            
+            console.log('📹 Motion detection enabled (fallback)');
+        }
+        
+        // ==========================================
+        // CLEANUP ON PAGE UNLOAD
+        // ==========================================
+        window.addEventListener('beforeunload', () => {
+            // Stop all intervals
+            if (faceDetectionInterval) clearInterval(faceDetectionInterval);
+            if (examFaceDetectionInterval) clearInterval(examFaceDetectionInterval);
+            
+            // Stop all streams
+            if (window.webcamStream) {
+                window.webcamStream.getTracks().forEach(track => track.stop());
+            }
+            if (window.liveWebcamStream) {
+                window.liveWebcamStream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+</body>
+</html>

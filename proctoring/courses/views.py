@@ -1,0 +1,890 @@
+# courses/views.py
+import os
+import re
+import json
+import subprocess
+import urllib.parse
+import datetime
+from pathlib import Path
+from django.shortcuts import render
+from django.http import JsonResponse, HttpResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from youtube_transcript_api import YouTubeTranscriptApi
+import requests
+from dotenv import load_dotenv
+import base64
+import numpy as np
+import cv2
+from io import BytesIO
+try:
+    from docx import Document
+except Exception:
+    Document = None
+
+# Load environment variables
+load_dotenv()
+
+MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
+MISTRAL_MODEL = os.getenv("MISTRAL_MODEL", "mistral-small-latest")
+MISTRAL_API_URL = os.getenv("MISTRAL_API_URL", "https://api.mistral.ai/v1/chat/completions")
+ASSEMBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY")
+
+if not MISTRAL_API_KEY:
+    raise ValueError("MISTRAL_API_KEY not found in environment variables!")
+
+print(f"✓ Loaded Mistral Key: {MISTRAL_API_KEY[:10]}...")
+
+# Paths
+BASE_DIR = Path(__file__).resolve().parent.parent  # Points to proctoring folder
+SPARKLESS_ROOT = BASE_DIR.parent.parent  # Go up to d:\sparkless 1
+TRANSCRIPTS_DIR = BASE_DIR / "transcripts"
+TRANSCRIPTS_DIR.mkdir(exist_ok=True)
+
+AUDIO_DIR = BASE_DIR / "audio"
+AUDIO_DIR.mkdir(exist_ok=True)
+
+FRONTEND_PATH = SPARKLESS_ROOT / "frontend"
+
+# --- Helper Functions ---
+
+def mistral_chat(prompt, temperature=0.25, max_tokens=400):
+    """Call Mistral chat completion API and return text."""
+    try:
+        resp = requests.post(
+            MISTRAL_API_URL,
+            headers={
+                "Authorization": f"Bearer {MISTRAL_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": MISTRAL_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            },
+            timeout=60,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+    except Exception as exc:
+        print(f"Mistral call failed: {exc}")
+        return ""
+
+def extract_youtube_id(url):
+    """Extracts YouTube video ID from standard or short URLs."""
+    parsed = urllib.parse.urlparse(url)
+    if parsed.hostname in ['www.youtube.com', 'youtube.com']:
+        q = urllib.parse.parse_qs(parsed.query)
+        return q.get('v', [None])[0]
+    elif parsed.hostname in ['youtu.be']:
+        return parsed.path[1:]
+    return None
+
+def get_video_duration(video_id):
+    """Get video duration in seconds using yt-dlp"""
+    try:
+        result = subprocess.run([
+            "yt-dlp",
+            "--print", "duration",
+            f"https://www.youtube.com/watch?v={video_id}"
+        ], capture_output=True, text=True, check=True)
+        
+        duration = float(result.stdout.strip())
+        return int(duration)
+    except Exception as e:
+        print(f"Could not get video duration: {e}")
+        return 3600
+
+def get_transcript_with_timestamps(video_id):
+    """Get transcript with timestamps."""
+    transcript_json_path = TRANSCRIPTS_DIR / f"{video_id}_timestamps.json"
+    
+    if transcript_json_path.exists():
+        with open(transcript_json_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    
+    try:
+        transcript_list = None
+
+        if hasattr(YouTubeTranscriptApi, "get_transcript"):
+            try:
+                transcript_list = YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
+            except Exception as inner:
+                print(f"YouTubeTranscriptApi.get_transcript failed: {inner}")
+
+        if transcript_list is None and hasattr(YouTubeTranscriptApi, "list_transcripts"):
+            try:
+                transcript_list = YouTubeTranscriptApi.list_transcripts(video_id).find_transcript(['en']).fetch()
+            except Exception as inner:
+                print(f"YouTubeTranscriptApi.list_transcripts failed: {inner}")
+
+        # Fallback to yt-dlp if YouTubeTranscriptApi is unavailable
+        if transcript_list is None:
+            print(f"Falling back to yt-dlp for {video_id}...")
+            try:
+                subprocess.run([
+                    "yt-dlp", "--write-auto-subs", "--sub-lang", "en", "--skip-download",
+                    "-o", str(TRANSCRIPTS_DIR / f"{video_id}"),
+                    f"https://www.youtube.com/watch?v={video_id}"
+                ], check=True, capture_output=True, text=True, timeout=60)
+                
+                vtt_files = list(TRANSCRIPTS_DIR.glob(f"{video_id}*.vtt"))
+                if vtt_files:
+                    vtt_file = vtt_files[0]
+                    lines = vtt_file.read_text(encoding="utf-8").splitlines()
+                    transcript_list = [
+                        {"text": line, "start": 0, "duration": 0}
+                        for line in lines
+                        if line.strip() and "-->" not in line and not line.strip().isdigit() and "WEBVTT" not in line and not line.startswith("NOTE")
+                    ]
+                    vtt_file.unlink()
+            except Exception as fallback_err:
+                print(f"yt-dlp fallback failed: {fallback_err}")
+
+        if transcript_list is None:
+            print(f"No transcript available for {video_id}; using mock")
+            return [{"text": f"Content for video {video_id}", "start": 0, "duration": 0}]
+
+        with open(transcript_json_path, 'w', encoding='utf-8') as f:
+            json.dump(transcript_list, f)
+        return transcript_list
+    except Exception as e:
+        print(f"get_transcript_with_timestamps failed: {e}")
+        return [{"text": f"Content for video {video_id}", "start": 0, "duration": 0}]
+
+def get_transcript_text(video_id):
+    """Get plain text transcript (fallback)"""
+    transcript_path = TRANSCRIPTS_DIR / f"{video_id}.txt"
+    
+    if transcript_path.exists():
+        return transcript_path.read_text(encoding="utf-8")
+
+    try:
+        subprocess.run([
+            "yt-dlp",
+            "--write-auto-subs",
+            "--sub-lang", "en",
+            "--skip-download",
+            "-o", str(TRANSCRIPTS_DIR / f"{video_id}"),
+            f"https://www.youtube.com/watch?v={video_id}"
+        ], check=True, capture_output=True, text=True)
+
+        vtt_files = list(TRANSCRIPTS_DIR.glob(f"{video_id}*.vtt"))
+        if vtt_files:
+            vtt_file = vtt_files[0]
+            lines = vtt_file.read_text(encoding="utf-8").splitlines()
+            full_text = " ".join(
+                re.sub(r'<[^>]+>', '', line) 
+                for line in lines 
+                if line.strip() 
+                and "-->" not in line 
+                and not line.strip().isdigit() 
+                and "WEBVTT" not in line
+                and not line.startswith("NOTE")
+            )
+            transcript_path.write_text(full_text, encoding="utf-8")
+            vtt_file.unlink()
+            return full_text
+    except Exception as e:
+        print(f"yt-dlp failed: {e}")
+    
+    raise Exception("Could not fetch transcript")
+
+def generate_course_overview(full_transcript_text, course_title):
+    """Generate 2-4 line overview of the entire course."""
+    try:
+        context_text = full_transcript_text[:5000] if len(full_transcript_text) > 5000 else full_transcript_text
+        prompt = (
+            "Analyze this video course transcript and provide a 2-4 sentence overview of what concepts and topics are taught.\n\n"
+            f"Course Title: {course_title}\n\n"
+            f"Transcript Sample:\n{context_text}\n\n"
+            "Provide ONLY the overview text, no additional formatting or labels."
+        )
+        overview = mistral_chat(prompt, temperature=0.2, max_tokens=220)
+        return overview
+    
+    except Exception as e:
+        print(f"Error generating course overview: {e}")
+        return f"An overview of {course_title}"
+
+def create_segments(video_id, video_duration):
+    """Create segments for the entire video."""
+    SEGMENT_SIZE = 180
+    num_segments = (video_duration + SEGMENT_SIZE - 1) // SEGMENT_SIZE
+    
+    segments = []
+    for i in range(num_segments):
+        start_time = i * SEGMENT_SIZE
+        end_time = min((i + 1) * SEGMENT_SIZE, video_duration)
+        segments.append({
+            "index": i + 1,
+            "start": start_time,
+            "end": end_time
+        })
+    
+    return segments
+
+def get_segment_transcript(transcript_list, start_time, end_time):
+    """Extract transcript for a specific segment."""
+    if not transcript_list:
+        return ""
+    
+    segment_texts = [
+        entry['text'] 
+        for entry in transcript_list 
+        if start_time <= entry['start'] < end_time
+    ]
+    
+    return " ".join(segment_texts)
+
+def generate_segment_explanation(segment_text, segment_index, course_title):
+    """Generate explanation for a segment."""
+    try:
+        prompt = f"""You are teaching the course: "{course_title}"
+
+Explain this segment (Part {segment_index}) in a clear and concise way:
+
+Transcript:
+{segment_text}
+
+Provide a 3-5 sentence explanation covering:
+1. What topic is being discussed
+2. Key concepts explained
+3. Any important examples or points mentioned
+
+Keep it educational and easy to understand."""
+
+        explanation = mistral_chat(prompt, temperature=0.25, max_tokens=320)
+        return explanation
+    
+    except Exception as e:
+        print(f"Error generating explanation for segment {segment_index}: {e}")
+        return f"Content for segment {segment_index}"
+
+# --- Django Views ---
+
+def courses_portal(request):
+    """Entry point for courses portal - serves frontend"""
+    try:
+        user = request.user.username if request.user.is_authenticated else 'Guest'
+        
+        print(f"\n✓ User '{user}' accessed courses portal")
+        
+        # Serve the StudyMate frontend (index.html)
+        frontend_file = FRONTEND_PATH / 'index.html'
+        if frontend_file.exists():
+            with open(frontend_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+                # Inject user context into the HTML
+                content = content.replace(
+                    '<script src="script.js"></script>',
+                    f'<script>window.djangoUser = "{user}";</script>\n    <script src="script.js"></script>'
+                )
+            return HttpResponse(content, content_type='text/html')
+        else:
+            return JsonResponse({"error": "Frontend file not found"}, status=404)
+    
+    except Exception as e:
+        print(f"❌ Error loading courses portal: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+
+def serve_css(request):
+    """Serve CSS file"""
+    css_file = FRONTEND_PATH / 'style.css'
+    if css_file.exists():
+        with open(css_file, 'r', encoding='utf-8') as f:
+            return HttpResponse(f.read(), content_type='text/css')
+    return HttpResponse("", status=404, content_type='text/css')
+
+def serve_js(request):
+    """Serve JavaScript file"""
+    js_file = FRONTEND_PATH / 'script.js'
+    if js_file.exists():
+        with open(js_file, 'r', encoding='utf-8') as f:
+            return HttpResponse(f.read(), content_type='application/javascript')
+    return HttpResponse("", status=404, content_type='application/javascript')
+
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def process_video(request):
+    """Process YouTube video and create course structure"""
+    if request.method == "OPTIONS":
+        response = HttpResponse("")
+        response["Access-Control-Allow-Origin"] = "*"
+        response["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    
+    try:
+        data = json.loads(request.body)
+        url = data.get("url")
+        course_title = data.get("courseTitle", "Untitled Course")
+        
+        if not url:
+            return JsonResponse({"error": "Missing URL"}, status=400)
+        
+        video_id = extract_youtube_id(url)
+        if not video_id:
+            return JsonResponse({"error": "Invalid YouTube URL"}, status=400)
+        
+        print(f"\n📹 Processing video: {video_id}")
+        print(f"   Title: {course_title}")
+        
+        # Get video duration
+        video_duration = get_video_duration(video_id)
+        print(f"   Duration: {video_duration} seconds")
+        
+        # Get transcript with timestamps
+        transcript_list = get_transcript_with_timestamps(video_id)
+        
+        # Get full transcript text
+        if transcript_list:
+            full_transcript = " ".join([entry['text'] for entry in transcript_list])
+        else:
+            full_transcript = get_transcript_text(video_id)
+        
+        # Generate course overview
+        print("   Generating course overview...")
+        course_overview = generate_course_overview(full_transcript, course_title)
+        
+        # Create segments
+        segments = create_segments(video_id, video_duration)
+        print(f"   Created {len(segments)} segments")
+        
+        # Generate explanations for each segment
+        print("   Generating segment explanations...")
+        for segment in segments:
+            segment_text = get_segment_transcript(
+                transcript_list, 
+                segment['start'], 
+                segment['end']
+            )
+            
+            if not segment_text and full_transcript:
+                chars_per_second = len(full_transcript) / video_duration
+                start_char = int(segment['start'] * chars_per_second)
+                end_char = int(segment['end'] * chars_per_second)
+                segment_text = full_transcript[start_char:end_char]
+            
+            explanation = generate_segment_explanation(
+                segment_text, 
+                segment['index'],
+                course_title
+            )
+            
+            segment['explanation'] = explanation
+            print(f"      Segment {segment['index']}: ✓")
+        
+        response_data = {
+            "success": True,
+            "videoId": video_id,
+            "courseTitle": course_title,
+            "courseOverview": course_overview,
+            "duration": video_duration,
+            "segments": segments,
+            "totalSegments": len(segments)
+        }
+        
+        print(f"✅ Successfully processed: {course_title}\n")
+        
+        response = JsonResponse(response_data)
+        response["Access-Control-Allow-Origin"] = "*"
+        return response
+    
+    except Exception as e:
+        print(f"❌ Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        response = JsonResponse({"error": str(e)}, status=500)
+        response["Access-Control-Allow-Origin"] = "*"
+        return response
+
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def ask_question(request):
+    """Answer questions about course content"""
+    if request.method == "OPTIONS":
+        response = HttpResponse("")
+        response["Access-Control-Allow-Origin"] = "*"
+        response["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    
+    try:
+        data = json.loads(request.body)
+        question = data.get("question")
+        video_id = data.get("videoId")
+        course_title = data.get("courseTitle", "this course")
+        current_time = data.get("currentTime", 0)
+        
+        if not question or not video_id:
+            return JsonResponse({"error": "Missing question or videoId"}, status=400)
+        
+        print(f"\n❓ Question: {question}")
+        print(f"   Video: {video_id} at {current_time}s")
+        
+        # Get transcript
+        transcript_list = get_transcript_with_timestamps(video_id)
+        
+        if transcript_list:
+            full_transcript = " ".join([entry['text'] for entry in transcript_list])
+        else:
+            transcript_path = TRANSCRIPTS_DIR / f"{video_id}.txt"
+            if transcript_path.exists():
+                full_transcript = transcript_path.read_text(encoding="utf-8")
+            else:
+                return JsonResponse({"error": "Transcript not found"}, status=404)
+        
+        # Get context around current time
+        if transcript_list:
+            context_start = max(0, current_time - 120)
+            context_end = current_time + 120
+            
+            context_entries = [
+                entry for entry in transcript_list
+                if context_start <= entry['start'] <= context_end
+            ]
+            
+            context_text = " ".join([entry['text'] for entry in context_entries])
+        else:
+            video_duration = get_video_duration(video_id)
+            chars_per_second = len(full_transcript) / video_duration
+            context_start = max(0, int((current_time - 120) * chars_per_second))
+            context_end = int((current_time + 120) * chars_per_second)
+            context_text = full_transcript[context_start:context_end]
+        
+        prompt = f"""You are a helpful tutor for the course: "{course_title}"
+
+    Student's Question: {question}
+
+    Relevant Course Content (around timestamp {current_time}s):
+    {context_text}
+
+    Provide a clear, concise answer based on the course content. If the answer isn't directly in the provided content, use your knowledge to explain the concept while noting it may not be explicitly covered in this part of the course.
+
+    Keep the answer conversational and educational."""
+
+        answer = mistral_chat(prompt, temperature=0.25, max_tokens=320)
+        
+        print(f"✅ Generated answer\n")
+        
+        response_data = {
+            "success": True,
+            "answer": answer
+        }
+        
+        response = JsonResponse(response_data)
+        response["Access-Control-Allow-Origin"] = "*"
+        return response
+    
+    except Exception as e:
+        print(f"❌ Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        response = JsonResponse({"error": str(e)}, status=500)
+        response["Access-Control-Allow-Origin"] = "*"
+        return response
+
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def transcribe_audio(request):
+    """Transcribe audio using AssemblyAI"""
+    if request.method == "OPTIONS":
+        response = HttpResponse("")
+        response["Access-Control-Allow-Origin"] = "*"
+        response["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    
+    try:
+        if not ASSEMBLYAI_API_KEY:
+            return JsonResponse({"error": "AssemblyAI API key not configured"}, status=500)
+        
+        audio_file = request.FILES.get('audio')
+        
+        if not audio_file:
+            return JsonResponse({"error": "No audio file provided"}, status=400)
+        
+        print("\n🎤 Transcribing audio...")
+        
+        # Save audio file temporarily
+        audio_path = AUDIO_DIR / f"temp_{datetime.datetime.now().timestamp()}.webm"
+        with open(audio_path, 'wb') as f:
+            for chunk in audio_file.chunks():
+                f.write(chunk)
+        
+        print(f"   Saved audio: {audio_path}")
+        
+        # Upload to AssemblyAI
+        headers = {"authorization": ASSEMBLYAI_API_KEY}
+        
+        with open(audio_path, 'rb') as f:
+            upload_response = requests.post(
+                "https://api.assemblyai.com/v2/upload",
+                headers=headers,
+                files={'file': f}
+            )
+        
+        if upload_response.status_code != 200:
+            audio_path.unlink()
+            return JsonResponse({"error": "Failed to upload audio"}, status=500)
+        
+        upload_url = upload_response.json()['upload_url']
+        print(f"   Uploaded to AssemblyAI")
+        
+        # Request transcription
+        transcript_response = requests.post(
+            "https://api.assemblyai.com/v2/transcript",
+            headers=headers,
+            json={"audio_url": upload_url}
+        )
+        
+        if transcript_response.status_code != 200:
+            audio_path.unlink()
+            return JsonResponse({"error": "Failed to request transcription"}, status=500)
+        
+        transcript_id = transcript_response.json()['id']
+        print(f"   Transcription ID: {transcript_id}")
+        
+        # Poll for completion
+        import time
+        while True:
+            status_response = requests.get(
+                f"https://api.assemblyai.com/v2/transcript/{transcript_id}",
+                headers=headers
+            )
+            
+            status_data = status_response.json()
+            status = status_data['status']
+            
+            if status == 'completed':
+                transcription_text = status_data['text']
+                print(f"✅ Transcription complete: {transcription_text[:100]}...\n")
+                audio_path.unlink()
+                
+                response = JsonResponse({
+                    "success": True,
+                    "text": transcription_text
+                })
+                response["Access-Control-Allow-Origin"] = "*"
+                return response
+            
+            elif status == 'error':
+                audio_path.unlink()
+                return JsonResponse({"error": "Transcription failed"}, status=500)
+            
+            time.sleep(2)
+    
+    except Exception as e:
+        print(f"❌ Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        response = JsonResponse({"error": str(e)}, status=500)
+        response["Access-Control-Allow-Origin"] = "*"
+        return response
+
+def health(request):
+    """Health check endpoint"""
+    return JsonResponse({
+        "status": "healthy",
+        "message": "StudyMate API is running (Django Integrated)",
+        "timestamp": str(datetime.datetime.now()),
+        "integration": "Unified Django Server",
+        "port": "8000"
+    })
+
+# =============================
+# 🎥 Face Detection / Attention
+# =============================
+
+# Initialize a basic face detector (Haar cascade)
+_FACE_DETECTOR = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+
+def _decode_image_b64(image_b64: str):
+    """Decode a base64 image (optionally data URI) into a BGR numpy array."""
+    try:
+        if image_b64.startswith('data:'):
+            # Strip data URI header
+            image_b64 = image_b64.split(',', 1)[1]
+        raw = base64.b64decode(image_b64)
+        np_arr = np.frombuffer(raw, dtype=np.uint8)
+        img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+        return img
+    except Exception:
+        return None
+
+
+def _detect_phone_like_regions(gray_img):
+    """
+    Naive phone detector based on rectangular, high-contrast regions.
+    It is intentionally lightweight (no ML weights) and biased toward
+    catching obvious handheld rectangles near the camera.
+    """
+    edges = cv2.Canny(gray_img, 50, 150)
+    edges = cv2.dilate(edges, None, iterations=1)
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    phone_boxes = []
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        area = w * h
+        # Rough size and aspect ratio filters for a phone shape
+        if area < 1200 or area > 45000:
+            continue
+        aspect = w / float(h)
+        if aspect < 0.35 or aspect > 0.85:
+            continue
+
+        # Prefer near-rectangular contours
+        perimeter = cv2.arcLength(cnt, True)
+        approx = cv2.approxPolyDP(cnt, 0.04 * perimeter, True)
+        if len(approx) < 4 or len(approx) > 8:
+            continue
+
+        fill_ratio = cv2.contourArea(cnt) / float(area)
+        if fill_ratio < 0.45:
+            continue
+
+        phone_boxes.append((x, y, w, h))
+
+    return {
+        "phone_detected": len(phone_boxes) > 0,
+        "phone_candidates": len(phone_boxes),
+        "phone_boxes": phone_boxes,
+    }
+
+def _analyze_frame(img_bgr):
+    """Return simple attention metrics from a single frame using heuristics."""
+    h, w = img_bgr.shape[:2]
+    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    faces = _FACE_DETECTOR.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=5, minSize=(60, 60))
+
+    face_present = len(faces) > 0
+    center_offset = 1.0
+    faces_count = int(len(faces))
+
+    if face_present:
+        # Pick largest face
+        x, y, fw, fh = max(faces, key=lambda f: f[2] * f[3])
+        face_cx = x + fw / 2.0
+        face_cy = y + fh / 2.0
+        img_cx = w / 2.0
+        img_cy = h / 2.0
+
+        # Normalized center distance (0 = centered, ~1 = off-screen)
+        dx = abs(face_cx - img_cx) / (w / 2.0)
+        dy = abs(face_cy - img_cy) / (h / 2.0)
+        center_offset = min(1.0, np.hypot(dx, dy))
+
+    # Blur measure (variance of Laplacian); lower means blur/still
+    blur_var = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+    brightness = float(gray.mean())
+
+    phone_data = _detect_phone_like_regions(gray)
+    multiple_faces = faces_count > 1
+
+    # Heuristic attention score: face present and relatively centered
+    attention_score = 0.0
+    if face_present:
+        attention_score = max(0.0, 1.0 - center_offset)
+
+    distracted = (not face_present) or (center_offset > 0.35)
+    # Heuristic boredom: face present, not distracted, but very low visual change (blur_var small)
+    bored = face_present and (not distracted) and (blur_var < 30.0)
+
+    return {
+        "face_present": face_present,
+        "multiple_faces": multiple_faces,
+        "phone_detected": bool(phone_data["phone_detected"]),
+        "phone_candidates": int(phone_data["phone_candidates"]),
+        "attention_score": round(attention_score, 3),
+        "distracted": bool(distracted),
+        "bored": bool(bored),
+        "metrics": {
+            "center_offset": round(float(center_offset), 3),
+            "blur_var": round(float(blur_var), 3),
+            "brightness": round(float(brightness), 3),
+            "faces_count": faces_count,
+            "phone_boxes": phone_data["phone_boxes"],
+            "frame_size": [int(w), int(h)]
+        }
+    }
+
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def analyze_face(request):
+    """Analyze a webcam frame for attention/distraction/boredom using heuristics."""
+    if request.method == "OPTIONS":
+        response = HttpResponse("")
+        response["Access-Control-Allow-Origin"] = "*"
+        response["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+
+    try:
+        data = json.loads(request.body)
+        image_b64 = data.get("frame")
+        if not image_b64:
+            return JsonResponse({"error": "Missing 'frame' base64 image"}, status=400)
+
+        img = _decode_image_b64(image_b64)
+        if img is None:
+            return JsonResponse({"error": "Invalid image data"}, status=400)
+
+        result = _analyze_frame(img)
+        response = JsonResponse(result)
+        response["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        print(f"analyze-face error: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+# --- Notes (.docx) Generation ---
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def generate_notes_doc(request):
+    if request.method == "OPTIONS":
+        response = HttpResponse("")
+        response["Access-Control-Allow-Origin"] = "*"
+        response["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+
+    try:
+        data = json.loads(request.body)
+        module_title = data.get("moduleTitle", "Module")
+        summary = data.get("summary", "")
+        key_points = data.get("keyPoints", [])
+
+        if Document is None:
+            # Provide a graceful fallback if python-docx is not available
+            content = f"Notes for {module_title}\n\nSummary:\n{summary}\n\nKey Points:\n" + "\n".join(f"- {p}" for p in key_points[:5])
+            blob = content.encode("utf-8")
+            file_name = re.sub(r"[^\w\-]+", "_", module_title.strip()) or "module"
+            file_name += ".txt"
+            hex_blob = blob.hex()
+        else:
+            # Build a simple .docx file
+            doc = Document()
+            doc.add_heading(f"Notes: {module_title}", level=1)
+            if summary:
+                doc.add_paragraph("Summary:")
+                doc.add_paragraph(summary)
+            if key_points:
+                doc.add_paragraph("Key Points:")
+                for p in key_points[:5]:
+                    doc.add_paragraph(p, style='List Bullet')
+
+            buf = BytesIO()
+            doc.save(buf)
+            buf.seek(0)
+            hex_blob = buf.read().hex()
+            file_name = re.sub(r"[^\w\-]+", "_", module_title.strip()) or "module"
+            file_name += ".docx"
+
+        response = JsonResponse({
+            "file_blob": hex_blob,
+            "file_name": file_name
+        })
+        response["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        print(f"generate-notes-doc error: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+# --- Practice Challenge Generation ---
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def generate_challenge(request):
+    if request.method == "OPTIONS":
+        response = HttpResponse("")
+        response["Access-Control-Allow-Origin"] = "*"
+        response["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+
+    try:
+        data = json.loads(request.body)
+        module_title = data.get("moduleTitle", "Module")
+        key_points = data.get("keyPoints", [])
+
+        # Simple deterministic challenge without relying on the AI
+        title = f"Build a Mini Page: {module_title}"
+        question = (
+            "Create a simple web page with a heading, a styled button, and a script that shows an alert when the button is clicked. "
+            "Use semantic HTML, add basic CSS, and vanilla JS for interactivity."
+        )
+        starting_code = {
+            "html": "<h1>Your Title</h1>\n<button id=\"actionBtn\">Click Me</button>",
+            "css": "body { font-family: sans-serif; padding: 1rem; }\nbutton { padding: .5rem 1rem; }",
+            "js": "document.getElementById('actionBtn').addEventListener('click', () => alert('Hello!'));"
+        }
+        solution = starting_code  # For now, solution equals starting code
+
+        response = JsonResponse({
+            "type": "web",
+            "title": title,
+            "question": question,
+            "starting_code": starting_code,
+            "solution": solution
+        })
+        response["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        print(f"generate-challenge error: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+# --- AI Hint (deterministic helper) ---
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def get_hint(request):
+    if request.method == "OPTIONS":
+        response = HttpResponse("")
+        response["Access-Control-Allow-Origin"] = "*"
+        response["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+
+    try:
+        data = json.loads(request.body)
+        challenge_question = data.get("challenge_question", "")
+        user_code = data.get("user_code", {"html": "", "css": "", "js": ""})
+        solution = data.get("solution", {"html": "", "css": "", "js": ""})
+        try_count = int(data.get("try_count", 1))
+
+        hints = []
+        # Check HTML structure
+        if "<h1" not in user_code.get("html", ""):
+            hints.append("Add a main heading using <h1> to describe the page.")
+        if "button" not in user_code.get("html", ""):
+            hints.append("Include a <button id=\"actionBtn\"> element so you can attach a click handler.")
+
+        # Check CSS basics
+        if "font-family" not in user_code.get("css", ""):
+            hints.append("Set a readable font in CSS, e.g., body { font-family: sans-serif; }.")
+        if "padding" not in user_code.get("css", ""):
+            hints.append("Add padding to the button for better click area.")
+
+        # Check JS interaction
+        js = user_code.get("js", "")
+        if "addEventListener" not in js or "click" not in js:
+            hints.append("Attach a click event listener to the button using addEventListener('click', ...).")
+
+        if try_count <= 1 and not hints:
+            hints.append("Try running your code to see the preview, then iterate on styling and interaction.")
+
+        hint_text = "\n".join(hints) if hints else "Looks great! Consider improving accessibility and responsive styles."
+        response = JsonResponse({"hint": hint_text})
+        response["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        print(f"get-hint error: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
+

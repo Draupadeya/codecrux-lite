@@ -1,0 +1,536 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeCrux - Welcome Back</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .bg-books {
+            background-image: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)), url('https://images.unsplash.com/photo-1495446815901-a7297e633e8d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80');
+            background-size: cover;
+            background-position: center;
+        }
+        .slideshow-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        .slide {
+            display: none;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transition: opacity 0.8s ease-in-out;
+            background-size: cover;
+            background-position: center;
+        }
+        .slide.active {
+            display: block;
+            opacity: 1;
+        }
+        .slide-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+            padding: 3rem;
+            color: white;
+            z-index: 10;
+        }
+        .slide-text {
+            animation: slideIn 0.8s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .slide-dots {
+            position: absolute;
+            bottom: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 0.5rem;
+            z-index: 20;
+        }
+        .dot {
+            width: 0.75rem;
+            height: 0.75rem;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .dot.active {
+            background-color: white;
+            width: 1.5rem;
+            border-radius: 0.375rem;
+        }
+        .slide-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            width: 3rem;
+            height: 3rem;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 15;
+        }
+        .slide-nav:hover {
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+        .slide-nav.prev {
+            left: 1rem;
+        }
+        .slide-nav.next {
+            right: 1rem;
+        }
+        /* Lock Animation Styles */
+        .lock-animation-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            flex-direction: column;
+        }
+        .lock-animation-overlay.show {
+            display: flex;
+        }
+        .lock-icon {
+            font-size: 80px;
+            margin-bottom: 30px;
+            animation: lockOpen 2s ease-in-out forwards;
+        }
+        @keyframes lockOpen {
+            0% {
+                transform: scale(1) rotateZ(0deg);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.1) rotateZ(-10deg);
+            }
+            100% {
+                transform: scale(0.8) rotateZ(0deg);
+                opacity: 0;
+            }
+        }
+        .lock-text {
+            color: white;
+            font-size: 20px;
+            font-weight: 600;
+            animation: fadeInOut 2s ease-in-out forwards;
+        }
+        @keyframes fadeInOut {
+            0% {
+                opacity: 0;
+            }
+            20% {
+                opacity: 1;
+            }
+            80% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+            }
+        }
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Button Animation Styles */
+        button[type="submit"],
+        button[type="button"] {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        button[type="submit"]:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(102, 126, 234, 0.4) !important;
+        }
+        button[type="submit"]:active {
+            transform: translateY(0);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3) !important;
+        }
+        button[type="button"]:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        }
+        button[type="button"]:active {
+            transform: translateY(0);
+        }
+        /* Button ripple effect */
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+            pointer-events: none;
+        }
+        button:active::before {
+            width: 300px;
+            height: 300px;
+        }
+        /* Lock Animation Styles */
+        .lock-animation-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            flex-direction: column;
+        }
+        .lock-animation-overlay.show {
+            display: flex;
+        }
+        .lock-icon {
+            font-size: 80px;
+            margin-bottom: 30px;
+            animation: lockOpen 2s ease-in-out forwards;
+        }
+        @keyframes lockOpen {
+            0% {
+                transform: scale(1) rotateZ(0deg);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.1) rotateZ(-10deg);
+            }
+            100% {
+                transform: scale(0.8) rotateZ(0deg);
+                opacity: 0;
+            }
+        }
+        .lock-text {
+            color: white;
+            font-size: 20px;
+            font-weight: 600;
+            animation: fadeInOut 2s ease-in-out forwards;
+        }
+        @keyframes fadeInOut {
+            0% {
+                opacity: 0;
+            }
+            20% {
+                opacity: 1;
+            }
+            80% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+            }
+        }
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-white min-h-screen flex">
+
+    <div class="w-full lg:w-[30%] flex flex-col justify-center px-8 md:px-16 lg:px-24">
+        
+        <div class="flex items-center gap-2 mb-12">
+            <div class="bg-indigo-100 p-2 rounded-lg">
+                <i data-lucide="sparkles" class="text-indigo-600 w-6 h-6"></i>
+            </div>
+            <span class="text-xl font-bold text-slate-800">CodeCrux</span>
+        </div>
+
+        <h1 class="text-3xl font-bold text-slate-900 mb-2">Welcome back</h1>
+        <p class="text-slate-500 mb-8 leading-relaxed">Enter your details to access your personalized learning workspace.</p>
+
+        <form method="POST" action="{% url 'login' %}" class="space-y-5">
+            {% csrf_token %}
+            
+            <div>
+                <label for="id_username" class="block text-sm font-semibold text-slate-700 mb-1">Username</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                        <i data-lucide="user" class="w-5 h-5"></i>
+                    </span>
+                    <input type="text" id="id_username" name="username" placeholder="username" class="w-full pl-10 pr-4 py-3 border-b border-slate-200 focus:border-indigo-500 focus:outline-none transition-colors" required>
+                </div>
+            </div>
+
+            <div>
+                <label for="id_password" class="block text-sm font-semibold text-slate-700 mb-1">Password</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                        <i data-lucide="lock" class="w-5 h-5"></i>
+                    </span>
+                    <input type="password" id="id_password" name="password" placeholder="••••••••" class="w-full pl-10 pr-4 py-3 border-b border-slate-200 focus:border-indigo-500 focus:outline-none transition-colors" required>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between text-sm">
+                <label class="flex items-center gap-2 cursor-pointer text-slate-600">
+                    <input type="checkbox" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+                    Remember me
+                </label>
+                <a href="#" class="text-indigo-600 font-semibold hover:underline">Forgot password?</a>
+            </div>
+
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2 shadow-lg shadow-indigo-200 transition-all">
+                Sign In
+                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
+
+            {% if form.errors %}
+                <div class="alert alert-danger" role="alert" style="margin-top: 20px; padding: 10px 15px; background-color: #fee2e2; border: 1px solid #fca5a5; border-radius: 0.5rem; color: #991b1b;">
+                    Invalid credentials. Please try again.
+                </div>
+            {% endif %}
+
+            <div class="relative my-8">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-slate-200"></div>
+                </div>
+                <div class="relative flex justify-center text-xs uppercase">
+                    <span class="bg-white px-4 text-slate-400 font-medium">Or continue with</span>
+                </div>
+            </div>
+
+            <button type="button" class="w-full border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold py-3 rounded-lg flex items-center justify-center gap-3 transition-all">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5" alt="Google">
+                Sign in with Google
+            </button>
+        </form>
+
+        <p class="mt-8 text-center text-sm text-slate-500">
+            Don't have an account? <a href="#" class="text-indigo-600 font-bold hover:underline">Create account</a>
+        </p>
+    </div>
+
+    <div class="hidden lg:flex lg:w-[70%] relative flex-col justify-end overflow-hidden">
+        <div class="slideshow-container">
+            <!-- Slide 1 -->
+            <div class="slide active" style="background-image: url('https://images.unsplash.com/photo-1517694712202-14dd9538aa97?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80');">
+                <div class="slide-overlay">
+                    <div class="slide-text max-w-xl">
+                        <h2 class="text-white text-3xl font-medium leading-tight mb-8">
+                            "CodeCrux transformed how I learn. The AI-driven insights helped me master complex topics in half the time."
+                        </h2>
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-slate-500 rounded-full flex items-center justify-center text-white font-bold border-2 border-slate-400">
+                                S
+                            </div>
+                            <div>
+                                <p class="text-white font-bold">Sarah Chen, Computer Science Student</p>
+                                <p class="text-slate-300 text-sm">Top Performer</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 2 -->
+            <div class="slide" style="background-image: url('https://images.unsplash.com/photo-1519389950473-47ba0277781c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80');">
+                <div class="slide-overlay">
+                    <div class="slide-text max-w-xl">
+                        <h2 class="text-white text-3xl font-medium leading-tight mb-8">
+                            "The interactive features and real-time feedback have made studying so much more engaging and productive."
+                        </h2>
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold border-2 border-blue-400">
+                                M
+                            </div>
+                            <div>
+                                <p class="text-white font-bold">Michael Rodriguez, Engineering Student</p>
+                                <p class="text-slate-300 text-sm">Consistent Learner</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 3 -->
+            <div class="slide" style="background-image: url('https://images.unsplash.com/photo-1552664730-d307ca884978?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80');">
+                <div class="slide-overlay">
+                    <div class="slide-text max-w-xl">
+                        <h2 class="text-white text-3xl font-medium leading-tight mb-8">
+                            "I've improved my grades significantly and now I actually enjoy the learning process with CodeCrux."
+                        </h2>
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold border-2 border-purple-400">
+                                A
+                            </div>
+                            <div>
+                                <p class="text-white font-bold">Aisha Williams, Medical Student</p>
+                                <p class="text-slate-300 text-sm">Grade Improvement Champion</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 4 -->
+            <div class="slide" style="background-image: url('https://images.unsplash.com/photo-1543269865-cbf427effbad?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80');">
+                <div class="slide-overlay">
+                    <div class="slide-text max-w-xl">
+                        <h2 class="text-white text-3xl font-medium leading-tight mb-8">
+                            "The personalized learning paths adapted to my pace perfectly. It's like having a personal tutor."
+                        </h2>
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-white font-bold border-2 border-green-400">
+                                J
+                            </div>
+                            <div>
+                                <p class="text-white font-bold">James Taylor, Business Student</p>
+                                <p class="text-slate-300 text-sm">Personalized Learning Advocate</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation Buttons -->
+            <button class="slide-nav prev" onclick="changeSlide(-1)">❮</button>
+            <button class="slide-nav next" onclick="changeSlide(1)">❯</button>
+
+            <!-- Dots -->
+            <div class="slide-dots">
+                <span class="dot active" onclick="currentSlide(0)"></span>
+                <span class="dot" onclick="currentSlide(1)"></span>
+                <span class="dot" onclick="currentSlide(2)"></span>
+                <span class="dot" onclick="currentSlide(3)"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lock Animation Overlay -->
+    <div id="lockAnimationOverlay" class="lock-animation-overlay">
+        <div class="loading-spinner"></div>
+        <div class="lock-icon">🔓</div>
+        <div class="lock-text">Unlocking your dashboard...</div>
+    </div>
+
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        // Slideshow functionality
+        let currentSlideIndex = 0;
+        let slideAutoPlayTimer;
+
+        function showSlide(n) {
+            const slides = document.querySelectorAll('.slide');
+            const dots = document.querySelectorAll('.dot');
+
+            if (n >= slides.length) {
+                currentSlideIndex = 0;
+            }
+            if (n < 0) {
+                currentSlideIndex = slides.length - 1;
+            }
+
+            slides.forEach(slide => slide.classList.remove('active'));
+            dots.forEach(dot => dot.classList.remove('active'));
+
+            slides[currentSlideIndex].classList.add('active');
+            dots[currentSlideIndex].classList.add('active');
+        }
+
+        function changeSlide(n) {
+            currentSlideIndex += n;
+            showSlide(currentSlideIndex);
+            resetAutoPlay();
+        }
+
+        function currentSlide(n) {
+            currentSlideIndex = n;
+            showSlide(currentSlideIndex);
+            resetAutoPlay();
+        }
+
+        function autoPlaySlide() {
+            currentSlideIndex++;
+            showSlide(currentSlideIndex);
+        }
+
+        function resetAutoPlay() {
+            clearInterval(slideAutoPlayTimer);
+            slideAutoPlayTimer = setInterval(autoPlaySlide, 5000);
+        }
+
+        // Start auto play on page load
+        window.addEventListener('load', function() {
+            showSlide(currentSlideIndex);
+            slideAutoPlayTimer = setInterval(autoPlaySlide, 5000);
+            lucide.createIcons();
+        });
+
+        // Handle form submission with lock animation
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.querySelector('form[action*="login"]');
+            if (form) {
+                form.addEventListener('submit', function() {
+                    const lockOverlay = document.getElementById('lockAnimationOverlay');
+                    lockOverlay.classList.add('show');
+                    // Allow form submission to continue
+                    setTimeout(() => {}, 2000);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
